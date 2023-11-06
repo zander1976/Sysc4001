@@ -72,6 +72,11 @@ void clock_pulse_callback(state_machine_t* self) {
         } 
     }
     if (self->running != NULL) {
+        // Check to see if it even has any io
+        if (self->running->io_frequency == 0) {
+            return;
+        }
+        // Check to see if the current counter has hit an io timeout
         if ((self->cpu->program_counter % self->running->io_frequency) == 0) {
             interrupt(self, SYSCALL_IO_REQUEST);
         } 
@@ -152,14 +157,19 @@ void syscall_exit_request_callback(state_machine_t* self) {
 
 int main(int argc, char *argv[]) {
 
+    char* file = NULL;
     if (argc != 2) {
 	    printf("Please supply a file!\n");
-	    return -1;
+        file = "test_part_1.csv";
+        //file = "test_case_1.csv";
+	    //return -1;
+    } else {
+        file = argv[1];
     }
 
     // Create the CPU and state machine
     state_machine_t* machine = _state_machine_create();
-    _job_load_from_file(argv[1], machine->job_spool);
+    _job_load_from_file(file, machine->job_spool);
 
     // Register all the interupt service request handlers
     _state_machine_register_isr(machine, IRQ_TERMINATED, terminate_callback);
