@@ -52,14 +52,12 @@ void io_complete_callback(state_machine_t* self) {
 // (JOB Scheduler) timeout for the job or admitted scheduler 
 void lt_scheduler_callback(state_machine_t* self) {
     assert(self != NULL);
-    for (int i = 0; i <= self->job_spool->count; i++) {
-        job_t* job = _queue_peak(self->job_spool);
-        if (job == NULL) {
-            return;
-        }
-        if (job->arrival_time == self->cpu->clock) {
-            interrupt(self, ADMITTED);
-        }
+    job_t* job = _queue_peak(self->job_spool);
+    if (job == NULL) {
+        return;
+    }
+    if (job->arrival_time <= self->cpu->clock) {
+        interrupt(self, ADMITTED);
     }
 }
 
