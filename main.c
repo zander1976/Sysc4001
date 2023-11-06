@@ -50,7 +50,7 @@ void io_complete_callback(state_machine_t* self) {
 }
 
 // (JOB Scheduler) timeout for the job or admitted scheduler 
-void lt_scheduler_callback(state_machine_t* self) {
+void lt_fcfs_scheduler_callback(state_machine_t* self) {
     assert(self != NULL);
     job_t* job = _queue_peak(self->job_spool);
     if (job == NULL) {
@@ -61,6 +61,28 @@ void lt_scheduler_callback(state_machine_t* self) {
     }
 }
 
+// (JOB Scheduler) timeout for the job or admitted scheduler 
+void lt_rr_scheduler_callback(state_machine_t* self) {
+    assert(self != NULL);
+    job_t* job = _queue_peak(self->job_spool);
+    if (job == NULL) {
+        return;
+    }
+    if (job->arrival_time <= self->cpu->clock) {
+        interrupt(self, ADMITTED);
+    }
+}
+// (JOB Scheduler) timeout for the job or admitted scheduler 
+void lt_multi_scheduler_callback(state_machine_t* self) {
+    assert(self != NULL);
+    job_t* job = _queue_peak(self->job_spool);
+    if (job == NULL) {
+        return;
+    }
+    if (job->arrival_time <= self->cpu->clock) {
+        interrupt(self, ADMITTED);
+    }
+}
 // Clock pulse
 void clock_pulse_callback(state_machine_t* self) {
     assert(self != NULL);
@@ -158,13 +180,18 @@ void syscall_exit_request_callback(state_machine_t* self) {
 int main(int argc, char *argv[]) {
 
     char* file = NULL;
-    if (argc != 2) {
-	    printf("Please supply a file!\n");
+    char* schedule_type = NULL;
+    if (argc != 3) {
+        printf("Please run main <file> <schedule type>\n");
+	    printf("<file> would be test_case_1.csv\n");
+	    printf("<schedule type> would be FCFS, RR or Multi\n");
         file = "test_part_1.csv";
+        schedule_type = "FCFS";
         //file = "test_case_1.csv";
 	    //return -1;
     } else {
         file = argv[1];
+        schedule_type = argv[2];
     }
 
     // Create the CPU and state machine
@@ -174,7 +201,18 @@ int main(int argc, char *argv[]) {
     // Register all the interupt service request handlers
     _state_machine_register_isr(machine, IRQ_TERMINATED, terminate_callback);
     _state_machine_register_isr(machine, IRQ_IO_COMPLETE, io_complete_callback);
-    _state_machine_register_isr(machine, IRQ_LT_SCHEDULER_TIMEOUT, lt_scheduler_callback);
+
+    if (strcmp(schedule_type, "FCFS")) {
+        _state_machine_register_isr(machine, IRQ_LT_SCHEDULER_TIMEOUT, lt_fcfs_scheduler_callback);
+    } else if (strcmp(schedule_type, "RR")) {
+        _state_machine_register_isr(machine, IRQ_LT_SCHEDULER_TIMEOUT, lt_rr_scheduler_callback);
+    } else if (strcmp(schedule_type, "Multi")) {
+        _state_machine_register_isr(machine, IRQ_LT_SCHEDULER_TIMEOUT, lt_multi_scheduler_callback);
+    } else {
+        printf("Not a valid scheduler.");
+        return 0;
+    }
+
     _state_machine_register_isr(machine, IRQ_CLOCK_PULSE, clock_pulse_callback);
     _state_machine_register_isr(machine, ADMITTED, admitted_callback);
     _state_machine_register_isr(machine, ST_SCHEDULER, st_scheduler_callback);
