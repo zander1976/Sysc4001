@@ -28,16 +28,18 @@ typedef enum {
 typedef struct state_machine state_machine_t;
 struct state_machine {
     cpu_t *cpu;
-    //main_memory_t* main_memory;
-    queue_t *read_queue;
+    queue_t *ready_queue;
     queue_t *wait_queue;
     queue_t *term_queue;
     queue_t *job_spool; // New queue
+    queue_t *report_queue; 
     pcb_t *running;
+    int preempt;
     void (*isr[SYSCALL_EXIT_REQUEST + 1])(state_machine_t* machine); 
 };
 
-state_machine_t* _state_machine_create();
+state_machine_t* _state_machine_create(char* schedule_type, int count, ...);
+void _state_machine_delete(state_machine_t *self);
 void _state_machine_register_isr(state_machine_t *self, state_codes_t state, void (*handler)(state_machine_t* hander));
 void interrupt(state_machine_t *machine, state_codes_t state);
 void save_context(state_machine_t* machine);
@@ -47,20 +49,43 @@ void load_context(state_machine_t* machine);
 
 #ifdef __STATE_MACHINE_IMPLEMENTATION__
 
-state_machine_t* _state_machine_create() {
+state_machine_t* _state_machine_create(char* schedule_type, int count, ...) {
+    printf("%s\n", schedule_type);
+    va_list valist;
+    va_start(valist, count);
+    for (int i = 0; i < count; i++) {
+        printf("%d\n", va_arg(valist, int));
+    }
+    va_end(valist);
+    exit(0);
 
     state_machine_t* machine = malloc(sizeof(state_machine_t));
     assert(machine != NULL);
 
     machine->cpu = _cpu_create();
     //machine->main_memory = _main_memory_create(16);
-    machine->read_queue = _queue_create();
+    machine->ready_queue = _queue_create();
     machine->wait_queue = _queue_create();
     machine->term_queue = _queue_create();
     machine->job_spool = _queue_create();
+    machine->report_queue = _queue_create();
+    
+    machine->preempt = 0;
+
     machine->running = NULL;
 
     return machine;
+}
+
+void _state_machine_delete(state_machine_t *self) {
+
+    _queue_delete(self->ready_queue);
+    _queue_delete(self->wait_queue);
+    _queue_delete(self->term_queue);
+    _queue_delete(self->job_spool);
+    _queue_delete(self->report_queue);
+
+    _cpu_delete(self->cpu);
 }
 
 void _state_machine_register_isr(state_machine_t *self, state_codes_t state, void (*handler)(state_machine_t* hander)) {
