@@ -22,7 +22,6 @@ struct node {
 
 typedef struct {
     node_t* head;
-    node_t* tail;
     size_t count;
 } queue_t;
 
@@ -40,6 +39,7 @@ void _queue_delete(queue_t* self);
 #endif //__QUEUE_H__
 
 #ifdef __QUEUE_IMPLEMENTATION__
+
 queue_t* _queue_create() {
     // Create the queue
     queue_t* self = malloc(sizeof(queue_t));
@@ -48,7 +48,6 @@ queue_t* _queue_create() {
     // Create the head nodes on the heap
     self->head = malloc(sizeof(node_t));
     assert(self->head != NULL);
-    self->tail = self->head;
 
     self->count = 0;
     self->head->next = NULL;
@@ -75,8 +74,10 @@ void _queue_push(queue_t* self, void* data) {
     new_data->next = NULL;
     new_data->data = data;
     
-    self->tail->next = new_data;
-    self->tail = new_data;
+    node_t* current = self->head;
+    for (; current->next != NULL; current = current->next);
+
+    current->next = new_data;    
 
     self->count++;
 }
