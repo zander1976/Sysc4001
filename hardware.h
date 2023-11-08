@@ -15,13 +15,19 @@
 #include <assert.h>
 #include <memory.h>
 
+typedef enum {
+    HIGH_PRIORITY = 1,
+    MID_PRIORITY = 2,
+    LOW_PRIORITY = 4,
+} priority_level_t;
+
 typedef struct {
     unsigned int process_id;
     unsigned int program_counter;
-    unsigned int flags;
     unsigned int interrupt;
     unsigned int clock;
     unsigned int mdr;
+    unsigned int priority;
 } cpu_t;
 
 typedef struct {
@@ -51,10 +57,10 @@ cpu_t* _cpu_create() {
     assert(cpu != NULL);
     cpu->process_id = 0;
     cpu->program_counter = 0;
-    cpu->flags = 0;
     cpu->interrupt = 0;
     cpu->clock = 0;
     cpu->mdr = 0;
+    cpu->priority = 0;
     return cpu;
 }
 
@@ -66,9 +72,9 @@ void _cpu_delete(cpu_t* self) {
 void _cpu_clear(cpu_t* self) {
     self->process_id = 0;
     self->program_counter = 0;
-    self->flags = 0;
     self->interrupt = 0;
     self->mdr = 0;
+    self->priority = 0;
 }
 
 void _cpu_print(cpu_t* self) {
@@ -76,10 +82,10 @@ void _cpu_print(cpu_t* self) {
     printf("\n------------------\n");
     printf("Process Id: %d\n", self->process_id);
     printf("Program Counter: %d\n", self->program_counter);
-    printf("Flags: %d\n", self->flags);
     printf("Interrupts: %d\n", self->interrupt);
     printf("Clock: %d\n", self->clock);
     printf("Data Register: %d\n", self->mdr);
+    printf("Priority: %d\n", self->priority);
     printf("------------------\n\n");
 }
 

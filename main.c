@@ -47,14 +47,14 @@ void io_complete_callback(state_machine_t* self) {
         return;
     }
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Waiting", "Ready");
-    _queue_push(self->ready_queue, pcb);
+    _queue_push(self->high_priority_ready_queue, pcb);
     interrupt(self, ST_SCHEDULER);
 }
 
 // (JOB Scheduler) timeout for the job or admitted scheduler 
 void lt_scheduler_callback(state_machine_t* self) {
     assert(self != NULL);
-    job_t* job = _queue_peak(self->job_spool);
+    job_t* job = _queue_peak(self->new_queue);
     if (job == NULL) {
         return;
     }
@@ -66,12 +66,12 @@ void lt_scheduler_callback(state_machine_t* self) {
 // Clock pulse
 void clock_pulse_callback(state_machine_t* self) {
     // Increment the wait counter
-    node_t* current = self->ready_queue->head;
-    for(int i = 0; i < self->ready_queue->count; i++) {
-        current = current->previous;
-        pcb_t* process = current->data; 
-        process->wait_time += 1;
-    }        
+    //node_t* current = self->ready_queue->head;
+    //for(int i = 0; i < self->ready_queue->count; i++) {
+    //    current = current->previous;
+    //    pcb_t* process = current->data; 
+    //    process->wait_time += 1;
+    //}        
 
     assert(self != NULL);
     self->cpu->clock++;
@@ -96,7 +96,7 @@ void clock_pulse_callback(state_machine_t* self) {
 void admitted_callback(state_machine_t* self) {
     assert(self != NULL);
 
-    job_t* job = _queue_pop(self->job_spool);
+    job_t* job = _queue_pop(self->new_queue);
     pcb_t* process = malloc(sizeof(pcb_t));
     if (process == NULL) {
         return;
@@ -106,7 +106,7 @@ void admitted_callback(state_machine_t* self) {
 
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, job->pid, "New", "Ready");
 
-    _queue_push(self->ready_queue, process);
+    _queue_push(self->high_priority_ready_queue, process);
 
     interrupt(self, ST_SCHEDULER);
 }
@@ -127,7 +127,7 @@ void st_scheduler_callback(state_machine_t* self) {
 void dispatch_callback(state_machine_t* self) {
     assert(self != NULL);
 
-    pcb_t* pcb = _queue_pop(self->ready_queue);
+    pcb_t* pcb = _queue_pop(self->high_priority_ready_queue);
     if (pcb == NULL) {
         return;
     }
@@ -186,30 +186,12 @@ int main(int argc, char *argv[]) {
     }
 
     // Create the CPU and state machine
-    state_machine_t* machine = NULL; 
-    // Register all the interupt service request handlers
-    if (strcmp(schedule_type, "FCFS") == 0) {
-        // Create a FCFS state machine
-        machine = _state_machine_create(schedule_type, 0);
-        _state_machine_register_isr(machine, ST_SCHEDULER, st_scheduler_callback);
-    } else if (strcmp(schedule_type, "RR") == 0) {
-        printf("RR\n");
-        // Create a Round Robin state machine with preemptive of 3
-        machine = _state_machine_create(schedule_type, 1, 3);
-        _state_machine_register_isr(machine, ST_SCHEDULER, st_scheduler_callback);
-    } else if (strcmp(schedule_type, "Multi") == 0) {
-        printf("Multi\n");
-        // Create a multi level with preemptive of 1,2,4 respectively
-        machine = _state_machine_create(schedule_type, 3, 1, 2, 4);
-        _state_machine_register_isr(machine, ST_SCHEDULER, st_scheduler_callback);
-    } else {
-        printf("Not a valid scheduler.");
-        return -1;
-    }
+    state_machine_t* machine = _state_machine_create(); 
 
     _state_machine_register_isr(machine, IRQ_TERMINATED, terminate_callback);
     _state_machine_register_isr(machine, IRQ_IO_COMPLETE, io_complete_callback);
     _state_machine_register_isr(machine, IRQ_LT_SCHEDULER_TIMEOUT, lt_scheduler_callback);
+    _state_machine_register_isr(machine, ST_SCHEDULER, st_scheduler_callback);
     _state_machine_register_isr(machine, IRQ_CLOCK_PULSE, clock_pulse_callback);
     _state_machine_register_isr(machine, ADMITTED, admitted_callback);
     _state_machine_register_isr(machine, DISPATCH, dispatch_callback);
@@ -217,8 +199,8 @@ int main(int argc, char *argv[]) {
     _state_machine_register_isr(machine, SYSCALL_IO_REQUEST, syscall_io_request_callback);
     _state_machine_register_isr(machine, SYSCALL_EXIT_REQUEST, syscall_exit_request_callback);
 
-    _job_load_from_file(file, machine->job_spool);
-    int job_count = machine->job_spool->count;
+    _job_load_from_file(file, machine->new_queue);
+    int job_count = machine->new_queue->count;
 
     // Main event loop
     for(unsigned int i = 0; i < 10000; i++) {
@@ -253,12 +235,12 @@ int main(int argc, char *argv[]) {
     }
 
     //for(int i = 0; i < machine->report_queue->count; i++) {
-    node_t* current = machine->report_queue->head;
-    for(int i = 0; i < machine->report_queue->count; i++) {
-        current = current->previous;
-        pcb_t* process = current->data; 
-        _pcb_print(process);
-    }
+    //node_t* current = machine->report_queue->head;
+    //for(int i = 0; i < machine->report_queue->count; i++) {
+    //    current = current->previous;
+    //    pcb_t* process = current->data; 
+    //    _pcb_print(process);
+    //}
 
     _state_machine_delete(machine);
 

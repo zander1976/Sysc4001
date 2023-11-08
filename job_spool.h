@@ -22,6 +22,7 @@ typedef struct {
     unsigned int total_cpu;
     unsigned int io_frequency;
     unsigned int io_duration;
+    unsigned int priority;
 } job_t;
 
 void _job_load_from_file(const char *filename,  queue_t* queue);
@@ -63,6 +64,9 @@ void _job_load_from_file(const char *filename,  queue_t* queue) {
  
         token = strtok(NULL, ",");
         job->io_duration = atoi(token);
+
+        token = strtok(NULL, ",");
+        job->priority = atoi(token);
 
         _queue_push(queue, job);
     }
