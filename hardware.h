@@ -33,6 +33,7 @@ typedef struct {
 cpu_t* _cpu_create();
 void _cpu_delete(cpu_t* self);
 void _cpu_print(cpu_t* self);
+
 main_memory_t* _main_memory_create(size_t start_size);
 void _main_memory_delete(main_memory_t* self);
 void _main_memory_dump(main_memory_t* self);
