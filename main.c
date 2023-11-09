@@ -66,6 +66,7 @@ void lt_scheduler_callback(state_machine_t* self) {
     if (job == NULL) {
         return;
     }
+    show_state(self);
     if (job->arrival_time <= self->cpu->clock) {
         interrupt(self, ADMITTED);
     }
@@ -103,6 +104,7 @@ void clock_pulse_callback(state_machine_t* self) {
 // Called from LT Schedulaer when a job is being admitted (move new -> ready)
 void admitted_callback(state_machine_t* self) {
     assert(self != NULL);
+    show_state(self);
 
     job_t* job = _heap_pop(self->new_queue);
     pcb_t* process = malloc(sizeof(pcb_t));
@@ -110,10 +112,10 @@ void admitted_callback(state_machine_t* self) {
         return;
     }
 
-    show_state(self);
     _pbc_admit_job(process, job);
 
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, job->pid, "New", "Ready");
+    show_state(self);
 
     _heap_append(self->ready_queue, process);
 
@@ -179,13 +181,7 @@ void syscall_exit_request_callback(state_machine_t* self) {
 void show_state(state_machine_t* machine) {
     system("clear");
     printf("Clock: %d\n", machine->cpu->clock);
-    printf("\n------------------\n");
-    printf("Process Id: %d\n", machine->cpu->process_id);
-    printf("Program Counter: %d\n", machine->cpu->program_counter);
-    printf("Interrupts: %d\n", machine->cpu->interrupt);
-    printf("Data Register: %d\n", machine->cpu->mdr);
-    printf("Preempt Countdown: %d\n", machine->cpu->preempt_countdown);
-    printf("------------------\n\n"); 
+    _cpu_print(machine->cpu);
         
     // Print column headers
     printf("New Queue\tRead Queue\tRunning\t\tWait Queue\tTerm Queue\tReport Queue\n");
@@ -318,7 +314,6 @@ int main(int argc, char *argv[]) {
         if (job_count == machine->report_queue->count) {
             break;
         }
-        show_state(machine);
     }
 
     heap_iterator_t* iter = _heap_iterator_create(machine->report_queue);
