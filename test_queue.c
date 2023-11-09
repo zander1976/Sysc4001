@@ -2,15 +2,22 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #define __QUEUE_IMPLEMENTATION__
 #include "util_queue.h"
+
+#define __HEAP_IMPLEMENTATION__
+#include "util_heap.h"
+
+#define __ITER_IMPLEMENTATION__
+#include "util_iter.h"
 
 int main() {
 
     queue_t* test = _queue_create();
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 5; i++) {
         int* x = malloc(sizeof(int));
         *x = i;
         _queue_push(test, x);
@@ -23,7 +30,7 @@ int main() {
     }
     _queue_iterator_delete(iter);
 
-    for (int i = 0; i < 3; i++) {
+    while((test->count > 0) == true) {
         int* x = _queue_peak(test);
         int* y = _queue_pop(test);
         if (x != NULL) {
@@ -37,7 +44,8 @@ int main() {
         *x = i;
         _queue_push(test, x);
     }
-    for (int i = 0; i < 3; i++) {
+
+    while((test->count > 0) == true) {
         int* x = _queue_peak(test);
         int* y = _queue_pop(test);
         if (x != NULL) {
@@ -51,6 +59,7 @@ int main() {
         *x = i;
         _queue_push(test, x);
     }
+    
     _queue_delete(test);
 
     return 0;

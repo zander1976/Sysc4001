@@ -15,6 +15,9 @@
 #define __QUEUE_IMPLEMENTATION__
 #include "util_queue.h"
 
+#define __HEAP_IMPLEMENTATION__
+#include "util_heap.h"
+
 #define __JOB_SPOOL_IMPLEMENTATION__
 #include "job_spool.h"
 

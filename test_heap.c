@@ -4,8 +4,15 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+#define __QUEUE_IMPLEMENTATION__
+#include "util_queue.h"
+
 #define __HEAP_IMPLEMENTATION__
 #include "util_heap.h"
+
+#define __ITER_IMPLEMENTATION__
+#include "util_iter.h"
+
 
 bool no_compare_func(const void *left, const void *right) {
     return true;
@@ -28,6 +35,12 @@ int main() {
         int *p = malloc(sizeof(int));
         *p = list[i];
         _heap_append(heap, p);
+    }
+
+    heap_iterator_t* iter = _heap_iterator_create(heap);
+    while (_heap_iterator_has_next(iter)) {
+        int* x = _heap_iterator_next(iter);
+        printf("%d\n", *x);
     }
 
     while((heap->count > 0) == true) {

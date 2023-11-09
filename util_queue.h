@@ -25,10 +25,6 @@ typedef struct {
     size_t count;
 } queue_t;
 
-typedef struct {
-    queue_t* queue;  
-    node_t* current; 
-} queue_iterator_t;
 
 queue_t* _queue_create();
 void* _queue_peak(queue_t* self);
@@ -108,32 +104,4 @@ void _queue_delete(queue_t* self) {
     free(self);
 }
 
-queue_iterator_t* _queue_iterator_create(queue_t* queue) {
-    queue_iterator_t* iterator = malloc(sizeof(queue_iterator_t));
-    if (iterator != NULL) {
-        iterator->queue = queue;
-        iterator->current = queue->head->next; // Start at the first element
-    }
-    return iterator;
-}
-
-int _queue_iterator_has_next(queue_iterator_t* iterator) {
-    return iterator->current != NULL;
-}
-
-void* _queue_iterator_next(queue_iterator_t* iterator) {
-    if (iterator->current != NULL) {
-        void* data = iterator->current->data;
-        iterator->current = iterator->current->next;
-        return data;
-    }
-    return NULL;
-}
-
-void _queue_iterator_delete(queue_iterator_t* iterator) {
-    free(iterator);
-}
-
-
 #endif //__QUEUE_IMPLEMENTATION__
-
