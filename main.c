@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #define __HEAP_IMPLEMENTATION__
 #include "util_heap.h"
@@ -30,6 +31,8 @@
 #define __STATE_MACHINE_IMPLEMENTATION__
 #include "state_machine.h"
 
+void show_state(state_machine_t* machine);
+ 
 // OS has released the resources
 void terminate_callback(state_machine_t* self) {
     assert(self != NULL);
@@ -39,6 +42,7 @@ void terminate_callback(state_machine_t* self) {
         //_pcb_print(process);
         _heap_append(self->report_queue, process);
         printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
+        show_state(self);
     }
 }
 
@@ -50,6 +54,7 @@ void io_complete_callback(state_machine_t* self) {
         return;
     }
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Waiting", "Ready");
+    show_state(self);
     _heap_append(self->ready_queue, pcb);
     interrupt(self, ST_SCHEDULER);
 }
@@ -105,6 +110,7 @@ void admitted_callback(state_machine_t* self) {
         return;
     }
 
+    show_state(self);
     _pbc_admit_job(process, job);
 
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, job->pid, "New", "Ready");
@@ -137,6 +143,7 @@ void dispatch_callback(state_machine_t* self) {
     self->running = pcb;
     load_context(self);
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Ready", "Running");
+    show_state(self);
 }
 
 // Kick process out of CPU
@@ -151,6 +158,8 @@ void syscall_io_request_callback(state_machine_t* self) {
 
     self->running->remaining_io_cycles = self->running->io_duration;
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Running", "Waiting");
+    show_state(self);
+
     save_context(self);
     _heap_append(self->wait_queue, self->running);
     self->running = NULL;
@@ -167,6 +176,87 @@ void syscall_exit_request_callback(state_machine_t* self) {
     interrupt(self,ST_SCHEDULER);
 }
 
+void show_state(state_machine_t* machine) {
+    system("clear");
+    printf("Clock: %d\n", machine->cpu->clock);
+    printf("\n------------------\n");
+    printf("Process Id: %d\n", machine->cpu->process_id);
+    printf("Program Counter: %d\n", machine->cpu->program_counter);
+    printf("Interrupts: %d\n", machine->cpu->interrupt);
+    printf("Data Register: %d\n", machine->cpu->mdr);
+    printf("Preempt Countdown: %d\n", machine->cpu->preempt_countdown);
+    printf("------------------\n\n"); 
+        
+    // Print column headers
+    printf("New Queue\tRead Queue\tRunning\t\tWait Queue\tTerm Queue\tReport Queue\n");
+
+    heap_iterator_t* new_iter = _heap_iterator_create(machine->new_queue);
+    heap_iterator_t* ready_iter = _heap_iterator_create(machine->ready_queue);
+    heap_iterator_t* wait_iter = _heap_iterator_create(machine->wait_queue);
+    heap_iterator_t* term_iter = _heap_iterator_create(machine->term_queue);
+    heap_iterator_t* report_iter = _heap_iterator_create(machine->report_queue);
+
+    int line = 0;
+    while(_heap_iterator_has_next(new_iter) ||
+        _heap_iterator_has_next(ready_iter) ||
+        _heap_iterator_has_next(wait_iter) ||
+        _heap_iterator_has_next(term_iter) ||
+        _heap_iterator_has_next(report_iter)
+    ) {
+        line++;
+
+        if (_heap_iterator_has_next(new_iter)) {
+            job_t* job = _heap_iterator_next(new_iter);
+            if (machine->cpu->clock >= job->arrival_time) {
+                printf("1%d\t\t", job->pid);
+            } else {
+                printf("1\t\t");
+            }
+        } else {
+            printf("1\t\t");
+        }
+
+        if (_heap_iterator_has_next(ready_iter)) {
+            pcb_t* process = _heap_iterator_next(ready_iter);
+            printf("2%d\t\t", process->pid);
+        } else {
+            printf("2\t\t");
+        }
+
+        if (machine->running != NULL && line == 1) {
+            printf("3%d\t\t", machine->running->pid);
+        } else {
+            printf("3\t\t");
+        }
+
+        if (_heap_iterator_has_next(wait_iter)) {
+            pcb_t* process = _heap_iterator_next(wait_iter);
+            printf("4%d\t\t", process->pid);
+        } else {
+            printf("4\t\t");
+        }
+
+        if (_heap_iterator_has_next(term_iter)) {
+            pcb_t* process = _heap_iterator_next(term_iter);
+            printf("5%d\t\t", process->pid);
+        } else {
+            printf("5\t\t");
+        }
+
+        if (_heap_iterator_has_next(report_iter)) {
+            pcb_t* process = _heap_iterator_next(report_iter);
+            printf("6%d\t\t", process->pid);
+        } else {
+            printf("6\t\t");
+        }
+
+        printf("\n");
+    }
+    
+    getchar();
+    //usleep(1000000);
+}
+
 int main(int argc, char *argv[]) {
 
     char* file = NULL;
@@ -175,14 +265,7 @@ int main(int argc, char *argv[]) {
         printf("Please run main <file> <schedule type>\n");
 	    printf("<file> would be test_case_1.csv\n");
 	    printf("<schedule type> would be FCFS, RR or Multi\n");
-        
-        file = "test_case_1.csv";
-        //file = "test_part_1.csv";
-
-        //schedule_type = "FCFS";
-        //schedule_type = "RR";
-        schedule_type = "Multi";
-	    //return -1;
+        file = "test_case_3.csv";
     } else {
         file = argv[1];
         schedule_type = argv[2];
@@ -235,6 +318,7 @@ int main(int argc, char *argv[]) {
         if (job_count == machine->report_queue->count) {
             break;
         }
+        show_state(machine);
     }
 
     heap_iterator_t* iter = _heap_iterator_create(machine->report_queue);
