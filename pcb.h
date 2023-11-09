@@ -74,9 +74,9 @@ bool _pcb_priority_compare_func(const void *left, const void *right) {
     pcb_t* process_right = (pcb_t*)right;
     
     if (process_left->priority < process_right->priority) {
-        return true;
+        return false;
     }
-    return false;
+    return true;
 }
 
 
