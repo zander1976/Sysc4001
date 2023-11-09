@@ -66,7 +66,6 @@ void lt_scheduler_callback(state_machine_t* self) {
     if (job == NULL) {
         return;
     }
-    show_state(self);
     if (job->arrival_time <= self->cpu->clock) {
         interrupt(self, ADMITTED);
     }
@@ -115,9 +114,10 @@ void admitted_callback(state_machine_t* self) {
     _pbc_admit_job(process, job);
 
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, job->pid, "New", "Ready");
-    show_state(self);
 
     _heap_append(self->ready_queue, process);
+
+    show_state(self);
 
     interrupt(self, ST_SCHEDULER);
 }
