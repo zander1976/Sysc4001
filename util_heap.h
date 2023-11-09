@@ -78,8 +78,6 @@ bool _heap_append(heap_t* self, void* element) {
         }
         
         _heap_swap(self, parent, index);
-        //self->data[index] = self->data[parent];
-        //self->data[parent] = element;
         index = parent;
     }
     return true;

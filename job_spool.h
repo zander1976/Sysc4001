@@ -25,8 +25,11 @@ typedef struct {
     unsigned int priority;
 } job_t;
 
-void _job_load_from_file(const char *filename,  queue_t* queue);
+void _job_load_from_file(const char *filename,  heap_t* queue);
 void _job_print(job_t* job);
+
+// If left is smaller then right
+bool _job_arrival_time_compare_func(const void *left , const void *right);
 
 #endif //__JOB_SPOOL_H__
 
@@ -34,7 +37,7 @@ void _job_print(job_t* job);
 
 // simultaneous peripheral operations on-line
 // temporarily held to be used and executed by a device, program or the system
-void _job_load_from_file(const char *filename,  queue_t* queue) {
+void _job_load_from_file(const char *filename,  heap_t* queue) {
     assert(filename != NULL);
     assert(queue != NULL);
 
@@ -68,7 +71,7 @@ void _job_load_from_file(const char *filename,  queue_t* queue) {
         token = strtok(NULL, ",");
         job->priority = atoi(token);
 
-        _queue_push(queue, job);
+        _heap_append(queue, job);
     }
 
     fclose(f);
@@ -84,5 +87,14 @@ void _job_print(job_t* job) {
     printf("----------------------------\n");
 }
 
+bool _job_arrival_time_compare_func(const void *left , const void *right) {
+    job_t* job_left = (job_t*)left;
+    job_t* job_right = (job_t*)right;
+    
+    if (job_left->arrival_time < job_right->arrival_time) {
+        return true;
+    }
+    return false;
+}
 
 #endif //__SPOOL_IMPLEMENTATION__

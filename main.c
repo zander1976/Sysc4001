@@ -12,11 +12,11 @@
 #include <assert.h>
 #include <stdarg.h>
 
-#define __QUEUE_IMPLEMENTATION__
-#include "util_queue.h"
-
 #define __HEAP_IMPLEMENTATION__
 #include "util_heap.h"
+
+#define __ITER_IMPLEMENTATION__
+#include "util_iter.h"
 
 #define __JOB_SPOOL_IMPLEMENTATION__
 #include "job_spool.h"
@@ -34,10 +34,10 @@
 void terminate_callback(state_machine_t* self) {
     assert(self != NULL);
     pcb_t* process = NULL; 
-    while( (process = _queue_pop(self->term_queue)) != NULL) {
+    while( (process = _heap_pop(self->term_queue)) != NULL) {
         // Announce it's deletion
         //_pcb_print(process);
-        _queue_push(self->report_queue, process);
+        _heap_append(self->report_queue, process);
         printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
     }
 }
@@ -45,19 +45,19 @@ void terminate_callback(state_machine_t* self) {
 // IOP hascompleted a task
 void io_complete_callback(state_machine_t* self) {
     assert(self != NULL);
-    pcb_t* pcb = _queue_pop(self->wait_queue);
+    pcb_t* pcb = _heap_pop(self->wait_queue);
     if (pcb == NULL) {
         return;
     }
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Waiting", "Ready");
-    _queue_push(self->high_priority_ready_queue, pcb);
+    _heap_append(self->ready_queue, pcb);
     interrupt(self, ST_SCHEDULER);
 }
 
 // (JOB Scheduler) timeout for the job or admitted scheduler 
 void lt_scheduler_callback(state_machine_t* self) {
     assert(self != NULL);
-    job_t* job = _queue_peak(self->new_queue);
+    job_t* job = _heap_peak(self->new_queue);
     if (job == NULL) {
         return;
     }
@@ -68,17 +68,17 @@ void lt_scheduler_callback(state_machine_t* self) {
 
 // Clock pulse
 void clock_pulse_callback(state_machine_t* self) {
-    // Increment the wait counter
-    //node_t* current = self->ready_queue->head;
-    //for(int i = 0; i < self->ready_queue->count; i++) {
-    //    current = current->previous;
-    //    pcb_t* process = current->data; 
-    //    process->wait_time += 1;
-    //}        
-
     assert(self != NULL);
     self->cpu->clock++;
     self->cpu->program_counter++;
+
+    // Increment the wait counter
+    heap_iterator_t* iter = _heap_iterator_create(self->ready_queue);
+    while (_heap_iterator_has_next(iter)) {
+        pcb_t* process = _heap_iterator_next(iter);
+        process->wait_time += 1;
+    }
+
     if (self->running != NULL) {
         if (self->cpu->program_counter == self->running->total_cpu) {
             interrupt(self, SYSCALL_EXIT_REQUEST);
@@ -99,7 +99,7 @@ void clock_pulse_callback(state_machine_t* self) {
 void admitted_callback(state_machine_t* self) {
     assert(self != NULL);
 
-    job_t* job = _queue_pop(self->new_queue);
+    job_t* job = _heap_pop(self->new_queue);
     pcb_t* process = malloc(sizeof(pcb_t));
     if (process == NULL) {
         return;
@@ -109,7 +109,7 @@ void admitted_callback(state_machine_t* self) {
 
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, job->pid, "New", "Ready");
 
-    _queue_push(self->high_priority_ready_queue, process);
+    _heap_append(self->ready_queue, process);
 
     interrupt(self, ST_SCHEDULER);
 }
@@ -130,7 +130,7 @@ void st_scheduler_callback(state_machine_t* self) {
 void dispatch_callback(state_machine_t* self) {
     assert(self != NULL);
 
-    pcb_t* pcb = _queue_pop(self->high_priority_ready_queue);
+    pcb_t* pcb = _heap_pop(self->ready_queue);
     if (pcb == NULL) {
         return;
     }
@@ -152,7 +152,7 @@ void syscall_io_request_callback(state_machine_t* self) {
     self->running->remaining_io_cycles = self->running->io_duration;
     printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Running", "Waiting");
     save_context(self);
-    _queue_push(self->wait_queue, self->running);
+    _heap_append(self->wait_queue, self->running);
     self->running = NULL;
     interrupt(self,ST_SCHEDULER);
 }
@@ -162,7 +162,7 @@ void syscall_exit_request_callback(state_machine_t* self) {
 
     assert(self != NULL);
     //save_context(self);
-    _queue_push(self->term_queue, self->running);
+    _heap_append(self->term_queue, self->running);
     self->running = NULL;
     interrupt(self,ST_SCHEDULER);
 }
@@ -176,8 +176,8 @@ int main(int argc, char *argv[]) {
 	    printf("<file> would be test_case_1.csv\n");
 	    printf("<schedule type> would be FCFS, RR or Multi\n");
         
-        //file = "test_case_1.csv";
-        file = "test_part_1.csv";
+        file = "test_case_1.csv";
+        //file = "test_part_1.csv";
 
         //schedule_type = "FCFS";
         //schedule_type = "RR";
@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
         
         // Check the wait queue
         if (machine->wait_queue != 0) {
-            pcb_t* pcb = _queue_peak(machine->wait_queue);
+            pcb_t* pcb = _heap_peak(machine->wait_queue);
             if (pcb != NULL) {
                 pcb->remaining_io_cycles--;
                 if (pcb->remaining_io_cycles == 0) {
@@ -237,13 +237,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    //for(int i = 0; i < machine->report_queue->count; i++) {
-    //node_t* current = machine->report_queue->head;
-    //for(int i = 0; i < machine->report_queue->count; i++) {
-    //    current = current->previous;
-    //    pcb_t* process = current->data; 
-    //    _pcb_print(process);
-    //}
+    heap_iterator_t* iter = _heap_iterator_create(machine->report_queue);
+    while (_heap_iterator_has_next(iter)) {
+        pcb_t* process = _heap_iterator_next(iter);
+        _pcb_print(process);
+    }
 
     _state_machine_delete(machine);
 

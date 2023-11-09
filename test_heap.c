@@ -26,11 +26,19 @@ bool min_compare_func(const void *left , const void *right) {
     return false;
 }
 
+// If left is smaller then right
+bool max_compare_func(const void *left , const void *right) {
+    if (*(int *)left < *(int *)right) {
+        return false;
+    }
+    return true;
+}
+
 int main() {
 
     int list[] = { 10,5,7,9,20 };
     
-    heap_t* heap = _heap_create(4, min_compare_func);
+    heap_t* heap = _heap_create(4, max_compare_func);
     for(int i = 0; i < 5; i++) {
         int *p = malloc(sizeof(int));
         *p = list[i];

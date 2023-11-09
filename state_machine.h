@@ -28,13 +28,11 @@ typedef enum {
 typedef struct state_machine state_machine_t;
 struct state_machine {
     cpu_t *cpu;
-    queue_t *new_queue; 
-    queue_t *high_priority_ready_queue;
-    queue_t *mid_priority_ready_queue;
-    queue_t *low_priority_ready_queue;
-    queue_t *wait_queue;
-    queue_t *term_queue;
-    queue_t *report_queue; 
+    heap_t *new_queue; 
+    heap_t *ready_queue;
+    heap_t *wait_queue;
+    heap_t *term_queue;
+    heap_t *report_queue; 
     pcb_t *running;
     void (*isr[SYSCALL_EXIT_REQUEST + 1])(state_machine_t* machine); 
 };
@@ -62,26 +60,22 @@ state_machine_t* _state_machine_create() {
     //machine->main_memory = _main_memory_create(16);
 
     // Create all the queues
-    machine->new_queue = _queue_create();
-    machine->high_priority_ready_queue = _queue_create();
-    machine->mid_priority_ready_queue = _queue_create();
-    machine->low_priority_ready_queue = _queue_create();
-    machine->wait_queue = _queue_create();
-    machine->term_queue = _queue_create();
-    machine->report_queue = _queue_create();
+    machine->new_queue    = _heap_create(4, _job_arrival_time_compare_func);
+    machine->ready_queue  = _heap_create(4, _pcb_priority_compare_func);
+    machine->wait_queue   = _heap_create(4, _pcb_fcfs_compare_func);
+    machine->term_queue   = _heap_create(4, _pcb_fcfs_compare_func);
+    machine->report_queue = _heap_create(4, _pcb_fcfs_compare_func);
 
     return machine;
 }
 
 void _state_machine_delete(state_machine_t *self) {
 
-    _queue_delete(self->new_queue);
-    _queue_delete(self->high_priority_ready_queue);
-    _queue_delete(self->mid_priority_ready_queue);
-    _queue_delete(self->low_priority_ready_queue);
-    _queue_delete(self->wait_queue);
-    _queue_delete(self->term_queue);
-    _queue_delete(self->report_queue);
+    _heap_delete(self->new_queue);
+    _heap_delete(self->ready_queue);
+    _heap_delete(self->wait_queue);
+    _heap_delete(self->term_queue);
+    _heap_delete(self->report_queue);
 
     _cpu_delete(self->cpu);
 
