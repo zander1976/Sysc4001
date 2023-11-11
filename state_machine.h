@@ -27,17 +27,21 @@ typedef enum {
 
 typedef struct state_machine state_machine_t;
 struct state_machine {
+    surface_t* surface;
+
     cpu_t *cpu;
+
     heap_t *new_queue; 
     heap_t *ready_queue;
     heap_t *wait_queue;
     heap_t *term_queue;
-    heap_t *report_queue; 
+    heap_t *report_queue;
     pcb_t *running;
+
     void (*isr[SYSCALL_EXIT_REQUEST + 1])(state_machine_t* machine); 
 };
 
-state_machine_t* _state_machine_create();
+state_machine_t* _state_machine_create(int col, int row);
 void _state_machine_delete(state_machine_t *self);
 void _state_machine_register_isr(state_machine_t *self, state_codes_t state, void (*handler)(state_machine_t* hander));
 void interrupt(state_machine_t *machine, state_codes_t state);
@@ -50,10 +54,13 @@ void demote_processb(state_machine_t* machine);
 
 #ifdef __STATE_MACHINE_IMPLEMENTATION__
 
-state_machine_t* _state_machine_create() {
+state_machine_t* _state_machine_create(int col, int row) {
 
     state_machine_t* machine = malloc(sizeof(state_machine_t));
     assert(machine != NULL);
+
+    machine->surface = _render_create_surface(col, row);
+    assert(machine->surface != NULL);
 
     machine->cpu = _cpu_create();
     machine->running = NULL;
@@ -78,6 +85,8 @@ void _state_machine_delete(state_machine_t *self) {
     _heap_delete(self->report_queue);
 
     _cpu_delete(self->cpu);
+
+    _render_delete_surface(self->surface);
 
     free(self);
 }

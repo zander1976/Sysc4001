@@ -28,6 +28,9 @@
 #define __PCB_IMPLEMENTATION__
 #include "pcb.h"
 
+#define __RENDER_IMPLEMENTATION__
+#include "render.h"
+
 #define __STATE_MACHINE_IMPLEMENTATION__
 #include "state_machine.h"
 
@@ -179,76 +182,84 @@ void syscall_exit_request_callback(state_machine_t* self) {
 }
 
 void show_state(state_machine_t* machine) {
-    system("clear");
-    printf("Clock: %d\n", machine->cpu->clock);
-    _cpu_print(machine->cpu);
-        
-    // Print column headers
-    printf("New Queue\tRead Queue\tRunning\t\tWait Queue\tTerm Queue\tReport Queue\n");
 
+    _render_clear_surface(machine->surface);
+
+    _render_write_string(machine->surface, 0, 0, "Clock: ", COLOR_WHITE);
+    _render_write_int(machine->surface, 7, 0, machine->cpu->clock, COLOR_CYAN);
+
+    int x = 0;
+    int y = 3;
+    _render_write_string(machine->surface, x, y, "New Queue:", COLOR_WHITE);
     heap_iterator_t* new_iter = _heap_iterator_create(machine->new_queue);
-    heap_iterator_t* ready_iter = _heap_iterator_create(machine->ready_queue);
-    heap_iterator_t* wait_iter = _heap_iterator_create(machine->wait_queue);
-    heap_iterator_t* term_iter = _heap_iterator_create(machine->term_queue);
-    heap_iterator_t* report_iter = _heap_iterator_create(machine->report_queue);
-
-    int line = 0;
-    while(_heap_iterator_has_next(new_iter) ||
-        _heap_iterator_has_next(ready_iter) ||
-        _heap_iterator_has_next(wait_iter) ||
-        _heap_iterator_has_next(term_iter) ||
-        _heap_iterator_has_next(report_iter)
-    ) {
-        line++;
-
-        if (_heap_iterator_has_next(new_iter)) {
-            job_t* job = _heap_iterator_next(new_iter);
-            if (machine->cpu->clock >= job->arrival_time) {
-                printf("1%d\t\t", job->pid);
-            } else {
-                printf("1\t\t");
-            }
-        } else {
-            printf("1\t\t");
-        }
-
-        if (_heap_iterator_has_next(ready_iter)) {
-            pcb_t* process = _heap_iterator_next(ready_iter);
-            printf("2%d\t\t", process->pid);
-        } else {
-            printf("2\t\t");
-        }
-
-        if (machine->running != NULL && line == 1) {
-            printf("3%d\t\t", machine->running->pid);
-        } else {
-            printf("3\t\t");
-        }
-
-        if (_heap_iterator_has_next(wait_iter)) {
-            pcb_t* process = _heap_iterator_next(wait_iter);
-            printf("4%d\t\t", process->pid);
-        } else {
-            printf("4\t\t");
-        }
-
-        if (_heap_iterator_has_next(term_iter)) {
-            pcb_t* process = _heap_iterator_next(term_iter);
-            printf("5%d\t\t", process->pid);
-        } else {
-            printf("5\t\t");
-        }
-
-        if (_heap_iterator_has_next(report_iter)) {
-            pcb_t* process = _heap_iterator_next(report_iter);
-            printf("6%d\t\t", process->pid);
-        } else {
-            printf("6\t\t");
-        }
-
-        printf("\n");
+    for(int i=1; i <= 7; i++) {
+        if (_heap_iterator_has_next(new_iter) == false) {
+            break;
+        } 
+        job_t* job = _heap_iterator_next(new_iter);
+        char output[12];
+        sprintf(output, "%d %d %d", job->pid, job->arrival_time, job->priority);
+        _render_write_string(machine->surface, x, y+i, output, COLOR_CYAN);
     }
-    
+    _heap_iterator_delete(new_iter);
+
+    x = 20;
+    y = 3;
+    _render_write_string(machine->surface, x, y, "Read Queue:", COLOR_WHITE);
+    heap_iterator_t* ready_iter = _heap_iterator_create(machine->ready_queue);
+    for(int i=1; i <= 7; i++) {
+        if (_heap_iterator_has_next(ready_iter) == false) {
+            break;
+        } 
+        pcb_t* process = _heap_iterator_next(ready_iter);
+        char output[12];
+        sprintf(output, "%d %d %d", process->pid, process->wait_time, process->priority);
+        _render_write_string(machine->surface, x, y+i, output, COLOR_CYAN);
+    }
+    _heap_iterator_delete(ready_iter);
+
+    x = 40;
+    y = 3;
+    _render_write_string(machine->surface, x, y, "Running:", COLOR_WHITE);
+    if (machine->running != NULL) {
+        pcb_t* process = machine->running;
+        char output[14];
+        sprintf(output, "%d %d %d", process->pid, process->program_counter, process->total_cpu);
+        _render_write_string(machine->surface, x, y+1, output, COLOR_YELLOW);
+    }
+
+    x = 60;
+    y = 3;
+    _render_write_string(machine->surface, x, y, "Term Queue:", COLOR_WHITE);
+    heap_iterator_t* term_iter = _heap_iterator_create(machine->term_queue);
+    for(int i=1; i <= 7; i++) {
+        if (_heap_iterator_has_next(term_iter) == false) {
+            break;
+        } 
+        pcb_t* process = _heap_iterator_next(term_iter);
+        char output[12];
+        sprintf(output, "%d %d %d", process->pid, process->wait_time, process->priority);
+        _render_write_string(machine->surface, x, y+i, output, COLOR_CYAN);
+    }
+    _heap_iterator_delete(term_iter);
+
+    x = 30;
+    y = 13;
+    _render_write_string(machine->surface, x, y, "Wait Queue:", COLOR_WHITE);
+    heap_iterator_t* wait_iter = _heap_iterator_create(machine->wait_queue);
+    for(int i=1; i <= 7; i++) {
+        if (_heap_iterator_has_next(wait_iter) == false) {
+            break;
+        } 
+        pcb_t* process = _heap_iterator_next(wait_iter);
+        char output[12];
+        sprintf(output, "%d %d %d", process->pid, process->io_duration, process->remaining_io_cycles);
+        _render_write_string(machine->surface, x, y+i, output, COLOR_CYAN);
+    }
+    _heap_iterator_delete(wait_iter);
+
+    // Display the results
+    _render_display_frame(machine->surface);
     getchar();
     //usleep(1000000);
 }
@@ -268,7 +279,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Create the CPU and state machine
-    state_machine_t* machine = _state_machine_create(); 
+    state_machine_t* machine = _state_machine_create(80, 23); 
 
     _state_machine_register_isr(machine, IRQ_TERMINATED, terminate_callback);
     _state_machine_register_isr(machine, IRQ_IO_COMPLETE, io_complete_callback);

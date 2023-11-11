@@ -32,7 +32,7 @@ void _pcb_print(pcb_t* pcb);
 bool _pcb_fcfs_compare_func(const void *left, const void *right);
 bool _pcb_priority_compare_func(const void *left, const void *right);
 
-#endif //__SPOOL_H__
+#endif //__PCB_H__
 
 #ifdef __PCB_IMPLEMENTATION__
 

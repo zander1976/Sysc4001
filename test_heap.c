@@ -50,6 +50,7 @@ int main() {
         int* x = _heap_iterator_next(iter);
         printf("%d\n", *x);
     }
+    _heap_delete(iter);
 
     while((heap->count > 0) == true) {
         int *p = _heap_pop(heap);
