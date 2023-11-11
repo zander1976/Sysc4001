@@ -21,6 +21,7 @@ typedef struct {
     unsigned int clock;
     unsigned int interrupt;
     unsigned int mdr;
+    unsigned int preempt; 
     unsigned int preempt_countdown;
 } cpu_t;
 
@@ -30,7 +31,7 @@ typedef struct {
     unsigned int *data;
 } main_memory_t;
 
-cpu_t* _cpu_create();
+cpu_t* _cpu_create(int preempt);
 void _cpu_delete(cpu_t* self);
 void _cpu_print(cpu_t* self);
 
@@ -46,7 +47,7 @@ void _main_memory_remove(main_memory_t* self, size_t start, size_t count);
 
 #ifdef __HARDWARE_IMPLEMENTATION__
 
-cpu_t* _cpu_create() {
+cpu_t* _cpu_create(int preempt) {
     cpu_t* cpu = malloc(sizeof(cpu_t));
     assert(cpu != NULL);
     cpu->process_id = 0;
@@ -54,7 +55,8 @@ cpu_t* _cpu_create() {
     cpu->interrupt = 0;
     cpu->clock = 0;
     cpu->mdr = 0;
-    cpu->preempt_countdown = 0;
+    cpu->preempt = preempt;
+    cpu->preempt_countdown = cpu->preempt;
     return cpu;
 }
 
@@ -68,19 +70,7 @@ void _cpu_clear(cpu_t* self) {
     self->program_counter = 0;
     self->interrupt = 0;
     self->mdr = 0;
-    self->preempt_countdown = 0;
-}
-
-void _cpu_print(cpu_t* self) {
-    assert(self != NULL);
-    printf("\n------------------\n");
-    printf("Process Id: %d\n", self->process_id);
-    printf("Program Counter: %d\n", self->program_counter);
-    printf("Interrupts: %d\n", self->interrupt);
-    printf("Clock: %d\n", self->clock);
-    printf("Data Register: %d\n", self->mdr);
-    printf("Preempt Countdown: %d\n", self->preempt_countdown);
-    printf("------------------\n\n");
+    self->preempt_countdown = self->preempt;
 }
 
 main_memory_t* _main_memory_create(size_t start_size) {

@@ -77,16 +77,6 @@ void _job_load_from_file(const char *filename,  heap_t* queue) {
     fclose(f);
 }
 
-void _job_print(job_t* job) {
-    printf("----------------------------\n");
-    printf("PID: %d\n", job->pid);
-    printf("Arrival Time: %d\n", job->arrival_time);
-    printf("Total CPU: %d\n", job->total_cpu);
-    printf("IO Frequency: %d\n", job->io_frequency);
-    printf("IO Duration: %d\n", job->io_duration);
-    printf("----------------------------\n");
-}
-
 bool _job_arrival_time_compare_func(const void *left , const void *right) {
     job_t* job_left = (job_t*)left;
     job_t* job_right = (job_t*)right;

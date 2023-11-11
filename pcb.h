@@ -19,12 +19,19 @@
 typedef struct {
     unsigned int pid;
     unsigned int program_counter;
-    unsigned int total_cpu;
+    unsigned int total_cpu_time;
     unsigned int io_frequency;
     unsigned int io_duration;
-    unsigned int wait_time;
-    unsigned int remaining_io_cycles;
+    unsigned int arrival_time;
+    unsigned int departed_time;
+    unsigned int wait_count;
+    unsigned int total_wait_time;
+    unsigned int response_count;
+    unsigned int total_response_time;
+    unsigned int remaining_io_cycles; 
     unsigned int priority;
+    unsigned int memory_size;
+    unsigned int memory_location;
 } pcb_t;
 
 void _pbc_admit_job(pcb_t* pcb, job_t* job);
@@ -43,25 +50,19 @@ void _pbc_admit_job(pcb_t* pcb, job_t* job) {
     // Create a process control block
     pcb->pid = job->pid;
     pcb->program_counter = 0;
-    pcb->total_cpu = job->total_cpu;
+    pcb->total_cpu_time = job->total_cpu;
     pcb->io_frequency = job->io_frequency;
     pcb->io_duration = job->io_duration;
-    pcb->wait_time = 0;
+    pcb->arrival_time = job->arrival_time;
+    pcb->departed_time = 0;
+    pcb->wait_count = 0;
+    pcb->total_wait_time = 0;
+    pcb->response_count = 0;
+    pcb->total_response_time = 0;
     pcb->remaining_io_cycles = job->io_duration;
     pcb->priority = job->priority;
-}
-
-void _pcb_print(pcb_t* pcb) {
-    printf("----------------------------\n");
-    printf("PID: %d\n", pcb->pid);
-    printf("Program Counter: %d\n", pcb->program_counter);
-    printf("Total CPU: %d\n", pcb->total_cpu);
-    printf("IO Frequency: %d\n", pcb->io_frequency);
-    printf("IO Duration: %d\n", pcb->io_duration);
-    printf("Total Wait: %d\n", pcb->wait_time);
-    printf("Remaining IO Cycles: %d\n", pcb->remaining_io_cycles);  
-    printf("Priority: %d\n", pcb->priority);  
-    printf("----------------------------\n");
+    pcb->memory_size = 0;
+    pcb->memory_location = 0;
 }
 
 bool _pcb_fcfs_compare_func(const void *left, const void *right) {

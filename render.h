@@ -59,7 +59,7 @@ void _render_clear_surface(surface_t* self){
     for(int i = 0; i < self->row; i++) {
         for(int j = 0; j < self->col; j++) {
             self->pixels[i * self->col + j] = ' ';
-            self->color[i * self->col + j] = COLOR_RED;
+            self->color[i * self->col + j] = COLOR_BLACK;
         }
     }
 }

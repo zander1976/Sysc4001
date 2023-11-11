@@ -4,9 +4,6 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#define __QUEUE_IMPLEMENTATION__
-#include "util_queue.h"
-
 #define __HEAP_IMPLEMENTATION__
 #include "util_heap.h"
 

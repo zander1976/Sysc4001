@@ -35,16 +35,15 @@
 #include "state_machine.h"
 
 void show_state(state_machine_t* machine);
- 
+
 // OS has released the resources
 void terminate_callback(state_machine_t* self) {
     assert(self != NULL);
     pcb_t* process = NULL; 
     while( (process = _heap_pop(self->term_queue)) != NULL) {
         // Announce it's deletion
-        //_pcb_print(process);
         _heap_append(self->report_queue, process);
-        printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
+        //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
         show_state(self);
     }
 }
@@ -56,8 +55,7 @@ void io_complete_callback(state_machine_t* self) {
     if (pcb == NULL) {
         return;
     }
-    printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Waiting", "Ready");
-    show_state(self);
+    //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Waiting", "Ready");
     _heap_append(self->ready_queue, pcb);
     interrupt(self, ST_SCHEDULER);
 }
@@ -77,18 +75,54 @@ void lt_scheduler_callback(state_machine_t* self) {
 // Clock pulse
 void clock_pulse_callback(state_machine_t* self) {
     assert(self != NULL);
+    show_state(self);
+
+    // Release any terminated processes
+    if (self->term_queue->count != 0) {
+        // Call terminated
+        interrupt(self, IRQ_TERMINATED);
+    }
+
+    // We can select how often we want to run this
+    if ((self->cpu->clock % 1) == 0) {
+        interrupt(self, IRQ_LT_SCHEDULER_TIMEOUT);
+    }
+    
+    // Check the wait queue
+    /*if (self->wait_queue != 0) {
+        pcb_t* pcb = _heap_peak(self->wait_queue);
+        if (pcb != NULL) {
+            pcb->remaining_io_cycles--;
+            if (pcb->remaining_io_cycles == 0) {
+                interrupt(self, IRQ_IO_COMPLETE);
+            }
+        }
+    }
+    */
+    // Increment the wait counter
+    heap_iterator_t* iter = _heap_iterator_create(self->wait_queue);
+    while (_heap_iterator_has_next(iter)) {
+        pcb_t* process = _heap_iterator_next(iter);
+        process->remaining_io_cycles--;
+        if (process->remaining_io_cycles == 0) {
+            interrupt(self, IRQ_IO_COMPLETE);
+        }
+    }
+    _heap_iterator_delete(iter);
+
     self->cpu->clock++;
     self->cpu->program_counter++;
 
     // Increment the wait counter
-    heap_iterator_t* iter = _heap_iterator_create(self->ready_queue);
+    iter = _heap_iterator_create(self->ready_queue);
     while (_heap_iterator_has_next(iter)) {
         pcb_t* process = _heap_iterator_next(iter);
-        process->wait_time += 1;
+        process->total_wait_time += 1;
     }
+    _heap_iterator_delete(iter);
 
     if (self->running != NULL) {
-        if (self->cpu->program_counter == self->running->total_cpu) {
+        if (self->cpu->program_counter == self->running->total_cpu_time) {
             interrupt(self, SYSCALL_EXIT_REQUEST);
         } 
     }
@@ -106,7 +140,6 @@ void clock_pulse_callback(state_machine_t* self) {
 // Called from LT Schedulaer when a job is being admitted (move new -> ready)
 void admitted_callback(state_machine_t* self) {
     assert(self != NULL);
-    show_state(self);
 
     job_t* job = _heap_pop(self->new_queue);
     pcb_t* process = malloc(sizeof(pcb_t));
@@ -116,7 +149,7 @@ void admitted_callback(state_machine_t* self) {
 
     _pbc_admit_job(process, job);
 
-    printf("%u\t%u\t%s\t%s\n", self->cpu->clock, job->pid, "New", "Ready");
+    //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, job->pid, "New", "Ready");
 
     _heap_append(self->ready_queue, process);
 
@@ -147,7 +180,7 @@ void dispatch_callback(state_machine_t* self) {
     }
     self->running = pcb;
     load_context(self);
-    printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Ready", "Running");
+    //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Ready", "Running");
     show_state(self);
 }
 
@@ -162,12 +195,12 @@ void syscall_io_request_callback(state_machine_t* self) {
     assert(self != NULL);
 
     self->running->remaining_io_cycles = self->running->io_duration;
-    printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Running", "Waiting");
-    show_state(self);
+    //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Running", "Waiting");
 
     save_context(self);
     _heap_append(self->wait_queue, self->running);
     self->running = NULL;
+    show_state(self);
     interrupt(self,ST_SCHEDULER);
 }
 
@@ -178,6 +211,7 @@ void syscall_exit_request_callback(state_machine_t* self) {
     //save_context(self);
     _heap_append(self->term_queue, self->running);
     self->running = NULL;
+    show_state(self);
     interrupt(self,ST_SCHEDULER);
 }
 
@@ -185,78 +219,99 @@ void show_state(state_machine_t* machine) {
 
     _render_clear_surface(machine->surface);
 
-    _render_write_string(machine->surface, 0, 0, "Clock: ", COLOR_WHITE);
-    _render_write_int(machine->surface, 7, 0, machine->cpu->clock, COLOR_CYAN);
+    _render_write_string(machine->surface, 0, 0, "Time: ", COLOR_WHITE);
+    _render_write_int(machine->surface, 6, 0, machine->cpu->clock, COLOR_CYAN);
+
+    _render_write_string(machine->surface, 0, 1, "Scheduler: ", COLOR_WHITE);
+    _render_write_string(machine->surface, 11, 1, machine->scheduler, COLOR_CYAN);
+
+    _render_write_string(machine->surface, 0, 2, "Preempt: ", COLOR_WHITE);
+    if (machine->cpu->preempt == 0) {
+        _render_write_string(machine->surface, 9, 2, "No", COLOR_CYAN);
+    } else {
+        _render_write_string(machine->surface, 9, 2, "Yes", COLOR_CYAN);
+    }
+
 
     int x = 0;
-    int y = 3;
+    int y = 5;
     _render_write_string(machine->surface, x, y, "New Queue:", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y+1, "PID   Arrival Priority", COLOR_WHITE);
     heap_iterator_t* new_iter = _heap_iterator_create(machine->new_queue);
-    for(int i=1; i <= 7; i++) {
+    for(int i=1; i <= 10; i++) {
         if (_heap_iterator_has_next(new_iter) == false) {
             break;
         } 
         job_t* job = _heap_iterator_next(new_iter);
-        char output[12];
-        sprintf(output, "%d %d %d", job->pid, job->arrival_time, job->priority);
-        _render_write_string(machine->surface, x, y+i, output, COLOR_CYAN);
+        char output[22];
+        sprintf(output, "%d     %d       %d", job->pid, job->arrival_time, job->priority);
+        _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
     }
     _heap_iterator_delete(new_iter);
 
-    x = 20;
-    y = 3;
+    x = 0;
+    y = 17;
+    _render_write_string(machine->surface, x, y, "Wait Queue:", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y+1, "PID  IO Duration IO Remaining", COLOR_WHITE);
+    heap_iterator_t* wait_iter = _heap_iterator_create(machine->wait_queue);
+    for(int i=1; i <= 10; i++) {
+        if (_heap_iterator_has_next(wait_iter) == false) {
+            break;
+        } 
+        pcb_t* process = _heap_iterator_next(wait_iter);
+        char output[22];
+        sprintf(output, "%d     %d       %d", process->pid, process->io_duration, process->remaining_io_cycles);
+        _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
+    }
+    _heap_iterator_delete(wait_iter);
+
+    x = 0;
+    y = 29;
+    _render_write_string(machine->surface, x, y, "Term Queue:", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y+1, "PID  Turnaround Avg Wait Avg Response", COLOR_WHITE);
+    heap_iterator_t* term_iter = _heap_iterator_create(machine->term_queue);
+    for(int i=1; i <= 10; i++) {
+        if (_heap_iterator_has_next(term_iter) == false) {
+            break;
+        } 
+        pcb_t* process = _heap_iterator_next(term_iter);
+        char output[30];
+        sprintf(output, "%d   %d  %.2f %.2f", process->pid, process->departed_time-process->arrival_time, (float)process->total_wait_time / process->wait_count, (float)process->total_response_time / process->response_count);
+        _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
+    }
+    _heap_iterator_delete(term_iter);
+
+    x = 35;
+    y = 5;
     _render_write_string(machine->surface, x, y, "Read Queue:", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y+1, "PID   CPU Left  Priority", COLOR_WHITE);
     heap_iterator_t* ready_iter = _heap_iterator_create(machine->ready_queue);
     for(int i=1; i <= 7; i++) {
         if (_heap_iterator_has_next(ready_iter) == false) {
             break;
         } 
         pcb_t* process = _heap_iterator_next(ready_iter);
-        char output[12];
-        sprintf(output, "%d %d %d", process->pid, process->wait_time, process->priority);
-        _render_write_string(machine->surface, x, y+i, output, COLOR_CYAN);
+        char output[22];
+        sprintf(output, "%d       %d      %d", process->pid, process->total_cpu_time-process->program_counter, process->priority);
+        _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
     }
     _heap_iterator_delete(ready_iter);
 
-    x = 40;
-    y = 3;
+    x = 70;
+    y = 5;
     _render_write_string(machine->surface, x, y, "Running:", COLOR_WHITE);
     if (machine->running != NULL) {
         pcb_t* process = machine->running;
-        char output[14];
-        sprintf(output, "%d %d %d", process->pid, process->program_counter, process->total_cpu);
-        _render_write_string(machine->surface, x, y+1, output, COLOR_YELLOW);
+        char output[22];
+        if (machine->cpu->preempt == 0) {
+            _render_write_string(machine->surface, x, y+1, "PID    CPU Left  Priority", COLOR_WHITE);
+            sprintf(output, "%d      %d        %d", process->pid, process->total_cpu_time - process->program_counter, process->priority);
+        } else {
+            _render_write_string(machine->surface, x, y+1, "PID    CPU Left  Preempt", COLOR_WHITE);
+            sprintf(output, "%d      %d        %d", process->pid, process->program_counter, machine->cpu->preempt_countdown);
+        }
+        _render_write_string(machine->surface, x, y+2, output, COLOR_YELLOW);
     }
-
-    x = 60;
-    y = 3;
-    _render_write_string(machine->surface, x, y, "Term Queue:", COLOR_WHITE);
-    heap_iterator_t* term_iter = _heap_iterator_create(machine->term_queue);
-    for(int i=1; i <= 7; i++) {
-        if (_heap_iterator_has_next(term_iter) == false) {
-            break;
-        } 
-        pcb_t* process = _heap_iterator_next(term_iter);
-        char output[12];
-        sprintf(output, "%d %d %d", process->pid, process->wait_time, process->priority);
-        _render_write_string(machine->surface, x, y+i, output, COLOR_CYAN);
-    }
-    _heap_iterator_delete(term_iter);
-
-    x = 30;
-    y = 13;
-    _render_write_string(machine->surface, x, y, "Wait Queue:", COLOR_WHITE);
-    heap_iterator_t* wait_iter = _heap_iterator_create(machine->wait_queue);
-    for(int i=1; i <= 7; i++) {
-        if (_heap_iterator_has_next(wait_iter) == false) {
-            break;
-        } 
-        pcb_t* process = _heap_iterator_next(wait_iter);
-        char output[12];
-        sprintf(output, "%d %d %d", process->pid, process->io_duration, process->remaining_io_cycles);
-        _render_write_string(machine->surface, x, y+i, output, COLOR_CYAN);
-    }
-    _heap_iterator_delete(wait_iter);
 
     // Display the results
     _render_display_frame(machine->surface);
@@ -267,19 +322,51 @@ void show_state(state_machine_t* machine) {
 int main(int argc, char *argv[]) {
 
     char* file = NULL;
-    char* schedule_type = NULL;
-    if (argc != 3) {
-        printf("Please run main <file> <schedule type>\n");
-	    printf("<file> would be test_case_1.csv\n");
-	    printf("<schedule type> would be FCFS, RR or Multi\n");
-        file = "test_case_3.csv";
+    char* scheduler = NULL;
+    int preempt = 0;
+    int memory_block_count;
+    char* memory = NULL;
+    int *memory_blocks = NULL;
+
+    if (argc < 5) {
+        printf("\n\nmain <filename> <scheduler> <preempt> <memory_block_count> <memory_layout>\n\n");
+        printf("<filename> is the csv file.\n");
+        printf("<scheduler> FCFS PRIORITY RR\n");
+        printf("<preempt> Preempt time, 0 for none\n");
+        printf("<memory_block_count> How many blocks of memory 0 for infinit\n");
+        printf("<memory> 102,123,12,14\n\n");
+        exit(0);
     } else {
         file = argv[1];
-        schedule_type = argv[2];
+        scheduler = argv[2];
+        preempt = atoi(argv[3]);
+        memory_block_count = atoi(argv[4]);
+        if (memory_block_count == 0) {
+            printf("%s %s %d\n", file, scheduler, preempt);
+        } else {
+            memory_blocks = (int *)malloc(memory_block_count * sizeof(int));
+            assert(memory_blocks);
+
+            char *token = strtok(argv[5], ",");
+            
+            // Populate the array with integers
+            int index = 0;
+            while (token != NULL) {
+                memory_blocks[index] = atoi(token);
+                index++;
+                token = strtok(NULL, ",");
+            }
+
+            printf("%s %s %d ", file, scheduler, preempt);
+            for (int i = 0; i < memory_block_count; i++) {
+                printf("%d ", memory_blocks[i]);
+            }            
+            printf("\n");
+        }
     }
 
     // Create the CPU and state machine
-    state_machine_t* machine = _state_machine_create(80, 23); 
+    state_machine_t* machine = _state_machine_create(160, 48, scheduler, preempt, memory_blocks); 
 
     _state_machine_register_isr(machine, IRQ_TERMINATED, terminate_callback);
     _state_machine_register_isr(machine, IRQ_IO_COMPLETE, io_complete_callback);
@@ -298,27 +385,6 @@ int main(int argc, char *argv[]) {
     // Main event loop
     for(unsigned int i = 0; i < 10000; i++) {
 
-        // Release any terminated processes
-        if (machine->term_queue->count != 0) {
-            // Call terminated
-            interrupt(machine, IRQ_TERMINATED);
-        }
-
-        // We can select how often we want to run this
-        if ((machine->cpu->clock % 1) == 0) {
-            interrupt(machine, IRQ_LT_SCHEDULER_TIMEOUT);
-        }
-        
-        // Check the wait queue
-        if (machine->wait_queue != 0) {
-            pcb_t* pcb = _heap_peak(machine->wait_queue);
-            if (pcb != NULL) {
-                pcb->remaining_io_cycles--;
-                if (pcb->remaining_io_cycles == 0) {
-                    interrupt(machine, IRQ_IO_COMPLETE);
-                }
-            }
-        }
         // Generate a clock pulse
         interrupt(machine,IRQ_CLOCK_PULSE);
 
@@ -330,10 +396,13 @@ int main(int argc, char *argv[]) {
     heap_iterator_t* iter = _heap_iterator_create(machine->report_queue);
     while (_heap_iterator_has_next(iter)) {
         pcb_t* process = _heap_iterator_next(iter);
-        _pcb_print(process);
+        //_pcb_print(process);
     }
+    _heap_iterator_delete(iter);
 
     _state_machine_delete(machine);
+
+    free(memory_blocks);
 
     return 0;
  }
