@@ -259,8 +259,8 @@ void show_state(state_machine_t* machine) {
             break;
         } 
         pcb_t* process = _heap_iterator_next(wait_iter);
-        char output[22];
-        sprintf(output, "%d     %d       %d", process->pid, process->io_duration, process->remaining_io_cycles);
+        char output[35];
+        sprintf(output, "%d       %d            %d", process->pid, process->io_duration, process->remaining_io_cycles);
         _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
     }
     _heap_iterator_delete(wait_iter);
@@ -275,8 +275,8 @@ void show_state(state_machine_t* machine) {
             break;
         } 
         pcb_t* process = _heap_iterator_next(term_iter);
-        char output[30];
-        sprintf(output, "%d   %d  %.2f %.2f", process->pid, process->departed_time-process->arrival_time, (float)process->total_wait_time / process->wait_count, (float)process->total_response_time / process->response_count);
+        char output[35];
+        sprintf(output, "%d     %d        %.2f       %.2f", process->pid, process->departed_time-process->arrival_time, (float)process->total_wait_time / process->wait_count, (float)process->total_response_time / process->response_count);
         _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
     }
     _heap_iterator_delete(term_iter);
