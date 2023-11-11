@@ -200,7 +200,6 @@ void syscall_io_request_callback(state_machine_t* self) {
     save_context(self);
     _heap_append(self->wait_queue, self->running);
     self->running = NULL;
-    show_state(self);
     interrupt(self,ST_SCHEDULER);
 }
 
@@ -211,7 +210,6 @@ void syscall_exit_request_callback(state_machine_t* self) {
     //save_context(self);
     _heap_append(self->term_queue, self->running);
     self->running = NULL;
-    show_state(self);
     interrupt(self,ST_SCHEDULER);
 }
 
