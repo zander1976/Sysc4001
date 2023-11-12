@@ -188,10 +188,12 @@ void preempt_callback(state_machine_t* self) {
     if (self->running == NULL) {
         return;
     }
-    //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Waiting", "Ready");
+
+    //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Running", "Ready");
     _heap_append(self->ready_queue, self->running);
     self->running = NULL;
-    interrupt(self, ST_SCHEDULER);}
+    interrupt(self, ST_SCHEDULER);
+}
 
 // System call from User space to do an IO request. Wait time is in cpu->mdr)
 void syscall_io_request_callback(state_machine_t* self) {
