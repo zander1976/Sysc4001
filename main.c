@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <string.h>
 
 #define __HEAP_IMPLEMENTATION__
 #include "util_heap.h"
@@ -22,11 +23,11 @@
 #define __JOB_SPOOL_IMPLEMENTATION__
 #include "job_spool.h"
 
-#define __HARDWARE_IMPLEMENTATION__
-#include "hardware.h"
-
 #define __PCB_IMPLEMENTATION__
 #include "pcb.h"
+
+#define __HARDWARE_IMPLEMENTATION__
+#include "hardware.h"
 
 #define __RENDER_IMPLEMENTATION__
 #include "render.h"
@@ -105,11 +106,10 @@ void clock_pulse_callback(state_machine_t* self) {
 
     // Not sure if this should be before or after
     if (self->cpu->preempt != 0) {
-        if ((self->cpu->clock % self->cpu->preempt) == 0) {
+        if ((self->cpu->program_counter % self->cpu->preempt) == 0) {
             interrupt(self, PREEMPT);
         }
     }    
-
 
     // Increment the wait counter
     iter = _heap_iterator_create(self->ready_queue);
@@ -311,7 +311,7 @@ void show_state(state_machine_t* machine) {
             sprintf(output, "%d      %d        %d", process->pid, process->total_cpu_time - process->program_counter, process->priority);
         } else {
             _render_write_string(machine->surface, x, y+1, "PID    CPU Left  Preempt", COLOR_WHITE);
-            sprintf(output, "%d      %d        %d", process->pid, process->program_counter, machine->cpu->preempt_countdown);
+            sprintf(output, "%d      %d        %d", process->pid, process->program_counter, machine->cpu->preempt);
         }
         _render_write_string(machine->surface, x, y+2, output, COLOR_YELLOW);
     }

@@ -10,11 +10,6 @@
 #ifndef __JOB_SPOOL_H__
 #define __JOB_SPOOL_H__
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-
 // Define programs stored in spool
 typedef struct {
     unsigned int pid;
@@ -23,6 +18,7 @@ typedef struct {
     unsigned int io_frequency;
     unsigned int io_duration;
     unsigned int priority;
+    unsigned int memory_size;
 } job_t;
 
 void _job_load_from_file(const char *filename,  heap_t* queue);
@@ -70,6 +66,9 @@ void _job_load_from_file(const char *filename,  heap_t* queue) {
 
         token = strtok(NULL, ",");
         job->priority = atoi(token);
+
+        token = strtok(NULL, ",");
+        job->memory_size = atoi(token);
 
         _heap_append(queue, job);
     }

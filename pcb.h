@@ -7,11 +7,6 @@
  * 
  * Fall 2023 Sysc 4001
 */
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdbool.h>
 
 #ifndef __PCB_H__
 #define __PCB_H__
@@ -61,7 +56,7 @@ void _pbc_admit_job(pcb_t* pcb, job_t* job) {
     pcb->total_response_time = 0;
     pcb->remaining_io_cycles = job->io_duration;
     pcb->priority = job->priority;
-    pcb->memory_size = 0;
+    pcb->memory_size = job->memory_size;
     pcb->memory_location = 0;
 }
 

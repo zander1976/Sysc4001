@@ -7,13 +7,10 @@
  * 
  * Fall 2023 Sysc 4001
 */
+
+
 #ifndef __HARDWARE_H__
 #define __HARDWARE_H__
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <memory.h>
 
 typedef struct {
     unsigned int process_id;
@@ -22,26 +19,32 @@ typedef struct {
     unsigned int interrupt;
     unsigned int mdr;
     unsigned int preempt; 
-    unsigned int preempt_countdown;
 } cpu_t;
 
 typedef struct {
+    size_t frag_size;
+    void* data;
+} memory_frag_t;
+
+typedef struct {
+    bool unlimited;
     size_t count;
-    size_t length; 
-    unsigned int *data;
+    size_t blocks;
+    heap_t* memory_blocks;
 } main_memory_t;
 
 cpu_t* _cpu_create(int preempt);
 void _cpu_delete(cpu_t* self);
-void _cpu_print(cpu_t* self);
 
-main_memory_t* _main_memory_create(size_t start_size);
+main_memory_t* _main_memory_create(size_t count, size_t *memory_list, bool unlimited);
 void _main_memory_delete(main_memory_t* self);
-void _main_memory_dump(main_memory_t* self);
-void _main_memory_resize(main_memory_t* self);
-void _main_memory_append(main_memory_t* self, unsigned int *data, size_t count);
-unsigned int _main_memory_get(main_memory_t* self, unsigned int offset, unsigned int position);
-void _main_memory_remove(main_memory_t* self, size_t start, size_t count);
+bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job);
+int _main_memory_reserve_location(main_memory_t* self, pcb_t* process);
+bool _main_memory_free_get_available_location(main_memory_t* self, pcb_t* process);
+bool _main_memory_first_compare_func(const void *left, const void *right);
+bool _main_memory_best_compare_func(const void *left, const void *right);
+bool _main_memory_worst_compare_func(const void *left, const void *right);
+
 
 #endif // __HARDWARE_H__
 
@@ -56,7 +59,6 @@ cpu_t* _cpu_create(int preempt) {
     cpu->clock = 0;
     cpu->mdr = 0;
     cpu->preempt = preempt;
-    cpu->preempt_countdown = cpu->preempt;
     return cpu;
 }
 
@@ -70,84 +72,126 @@ void _cpu_clear(cpu_t* self) {
     self->program_counter = 0;
     self->interrupt = 0;
     self->mdr = 0;
-    self->preempt_countdown = self->preempt;
 }
 
-main_memory_t* _main_memory_create(size_t start_size) {
-    assert(start_size > 0);
+main_memory_t* _main_memory_create(size_t count, size_t *memory_list, bool unlimited) {
+    assert(count > 0);
+    assert(memory_list != NULL);
 
     main_memory_t* memory = malloc(sizeof(main_memory_t));
     assert(memory != NULL);
 
-    memory->count = 0;
-    memory->length = start_size;
-
-    memory->data = malloc(memory->length * sizeof(unsigned int));
-    assert(memory->data != NULL);
-
-    for(size_t i = 0; i < memory->length; i++) {
-        memory->data[i] = 0xFFFF;
+    if (unlimited == true) {
+        memory->unlimited = unlimited;
+        return memory;
     }
+    
+    memory->count = 0;
+    memory->blocks = count;
+    memory->memory_blocks = _heap_create(count, _main_memory_first_compare_func);
 
+    for (int i = 0; i < count; i++) {
+        memory_frag_t* block = malloc(sizeof(memory_frag_t));
+        assert(block != NULL);
+        block->frag_size = memory_list[i];
+        block->data = NULL;
+        _heap_append(memory->memory_blocks, block);
+    }
     return memory;
 }
 
 void _main_memory_delete(main_memory_t* self) {
     assert(self != NULL);
-    free(self->data);
+    _heap_delete(self->memory_blocks);
     free(self);
 }
 
-void _main_memory_dump(main_memory_t* self) {
+bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job) {
     assert(self != NULL);
-    printf("\n------------------\n");
-    for(size_t i = 0; i < self->length; i++) {
-        printf("%zu\t%x\n", i, self->data[i]);
-    }
-    printf("------------------\n\n");
-}
+    assert(job != NULL);
 
-void _main_memory_resize(main_memory_t* self) {
-    assert(self != NULL);
-    self->length *= 2;
-    self->data = realloc(self->data, self->length * sizeof(unsigned int));
-    assert(self->data != NULL);
-
-    for(size_t i = self->count; i < self->length; i++) {
-        self->data[i] = 0xFFFF;
+    if (self->unlimited == true) {
+        return true;
     }
 
+    heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
+    while (_heap_iterator_has_next(iter)) {
+        memory_frag_t* frag = _heap_iterator_next(iter);
+        if (frag->frag_size > job->memory_size) {
+            return true;
+        }
+    }
+    _heap_iterator_delete(iter); 
+    return false;
 }
 
-void _main_memory_append(main_memory_t* self, unsigned int *data, size_t count) {
+int _main_memory_reserve_location(main_memory_t* self, pcb_t* process) {
     assert(self != NULL);
-    assert(data != NULL);
-    assert(count != 0);
+    assert(process != NULL);
+
+    if (self->unlimited == true) {
+        return 0;
+    }
+
+    int index = 1; 
+    heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
+    while (_heap_iterator_has_next(iter)) {
+        memory_frag_t* frag = _heap_iterator_next(iter);
+        if (frag->frag_size > process->memory_size) {
+            frag->data = process;
+            return index;
+        }
+        index++;
+    }
+    _heap_iterator_delete(iter);
+    return -1;
+}
+
+bool _main_memory_free_get_available_location(main_memory_t* self, pcb_t* process) {
+    assert(self != NULL);
+    assert(process != NULL);
+
+    if (self->unlimited == true) {
+        return 0;
+    }
+
+    heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
+    while (_heap_iterator_has_next(iter)) {
+        memory_frag_t* frag = _heap_iterator_next(iter);
+        if (frag->data == NULL) {
+            continue;
+        }
+        pcb_t* p = (pcb_t*)frag->data;
+        if (p->pid == process->pid) {
+            frag->data = NULL;
+            return true;
+        }
+    }
+    _heap_iterator_delete(iter);
+    return false;
+}
+
+bool _main_memory_first_compare_func(const void *left, const void *right) {
+    return true;
+}
+bool _main_memory_best_compare_func(const void *left, const void *right) {
+    memory_frag_t* frag_left = (memory_frag_t*)left;
+    memory_frag_t* frag_right = (memory_frag_t*)right;
     
-    if ((self->count+count) > self->length) {
-        _main_memory_resize(self);
+    if (frag_left->priority < frag_right->priority) {
+        return false;
     }
-
-    memcpy(self->data + self->count, data, count * sizeof(unsigned int));
-    self->count += count;
-}
-unsigned int _main_memory_get(main_memory_t* self, unsigned int offset, unsigned int position) {
-    assert(self != NULL);
-    //printf("Memory Address: %u\n", offset + position);
-    return self->data[offset + position];
+    return true;
 }
 
-
-void _main_memory_remove(main_memory_t* self, size_t start, size_t count) {
-    assert(self != NULL);
-    assert(start != 0);
-    assert(count != 0);
-    assert((start+count) < self->length);
+bool _main_memory_worst_compare_func(const void *left, const void *right) {
+    memory_frag_t* frag_left = (memory_frag_t*)left;
+    memory_frag_t* frag_right = (memory_frag_t*)right;
     
-    for(size_t i = 0; i < count; i++) {
-        self->data[start+i] = 0xFFFF;
+    if (frag_left->priority < frag_right->priority) {
+        return true;
     }
-    self->count -= count;
+    return false;
 }
 
 #endif // __HARDWARE_IMPLEMENTATION__

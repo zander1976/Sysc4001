@@ -30,6 +30,7 @@ struct state_machine {
     surface_t* surface;
     cpu_t *cpu;
     heap_t *new_queue; 
+    heap_t *memory_wait_queue;
     heap_t *ready_queue;
     heap_t *wait_queue;
     heap_t *term_queue;
@@ -68,6 +69,7 @@ state_machine_t* _state_machine_create(int col, int row, char* scheduler, int pr
 
     // Create all the queues
     machine->new_queue    = _heap_create(4, _job_arrival_time_compare_func);
+    machine->memory_wait_queue = _heap_create(4, _job_arrival_time_compare_func);
     machine->ready_queue  = _heap_create(4, _pcb_priority_compare_func);
     machine->wait_queue   = _heap_create(4, _pcb_fcfs_compare_func);
     machine->term_queue   = _heap_create(4, _pcb_fcfs_compare_func);
@@ -79,6 +81,7 @@ state_machine_t* _state_machine_create(int col, int row, char* scheduler, int pr
 void _state_machine_delete(state_machine_t *self) {
 
     _heap_delete(self->new_queue);
+    _heap_delete(self->memory_wait_queue);
     _heap_delete(self->ready_queue);
     _heap_delete(self->wait_queue);
     _heap_delete(self->term_queue);
