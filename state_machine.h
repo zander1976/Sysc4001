@@ -41,7 +41,7 @@ struct state_machine {
     void (*isr[SYSCALL_EXIT_REQUEST + 1])(state_machine_t* machine); 
 };
 
-state_machine_t* _state_machine_create(int col, int row, char* scheduler, int preempt, int* memory_blocks);
+state_machine_t* _state_machine_create(int col, int row, char* scheduler, int preempt, size_t memory_count, int* memory_blocks);
 void _state_machine_delete(state_machine_t *self);
 void _state_machine_register_isr(state_machine_t *self, state_codes_t state, void (*handler)(state_machine_t* hander));
 void interrupt(state_machine_t *machine, state_codes_t state);
@@ -54,7 +54,7 @@ void demote_processb(state_machine_t* machine);
 
 #ifdef __STATE_MACHINE_IMPLEMENTATION__
 
-state_machine_t* _state_machine_create(int col, int row, char* scheduler, int preempt, size_t mem_count, int* memory_blocks) {
+state_machine_t* _state_machine_create(int col, int row, char* scheduler, int preempt, size_t memory_count, int* memory_blocks) {
 
     state_machine_t* machine = malloc(sizeof(state_machine_t));
     assert(machine != NULL);

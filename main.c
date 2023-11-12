@@ -43,7 +43,8 @@ void terminate_callback(state_machine_t* self) {
     pcb_t* process = NULL; 
     while( (process = _heap_pop(self->term_queue)) != NULL) {
         // Announce it's deletion
-        _heap_append(self->report_queue, process);
+        process->departed_time = self->cpu->clock;
+        _pcb_list_append(self->report_queue, process);
         //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
         show_state(self);
     }
@@ -384,7 +385,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Create the CPU and state machine
-    state_machine_t* machine = _state_machine_create(160, 48, scheduler, preempt, memory_blocks); 
+    state_machine_t* machine = _state_machine_create(160, 48, scheduler, preempt, memory_block_count, memory_blocks); 
 
     _state_machine_register_isr(machine, IRQ_TERMINATED, terminate_callback);
     _state_machine_register_isr(machine, IRQ_IO_COMPLETE, io_complete_callback);
@@ -411,12 +412,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    heap_iterator_t* iter = _heap_iterator_create(machine->report_queue);
-    while (_heap_iterator_has_next(iter)) {
-        pcb_t* process = _heap_iterator_next(iter);
+    //for(int i = 0; i < machine->report_queue->count; i++) {
+        //machine->report_queue->blocks[i];
         //_pcb_print(process);
-    }
-    _heap_iterator_delete(iter);
+    //}
 
     _state_machine_delete(machine);
 

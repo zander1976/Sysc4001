@@ -36,7 +36,7 @@ typedef struct {
 cpu_t* _cpu_create(int preempt);
 void _cpu_delete(cpu_t* self);
 
-main_memory_t* _main_memory_create(size_t count, size_t *memory_list, bool unlimited);
+main_memory_t* _main_memory_create(size_t count, int *memory_list, bool unlimited);
 void _main_memory_delete(main_memory_t* self);
 
 bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job);
@@ -76,7 +76,7 @@ void _cpu_clear(cpu_t* self) {
     self->mdr = 0;
 }
 
-main_memory_t* _main_memory_create(size_t count, size_t *memory_list, bool unlimited) {
+main_memory_t* _main_memory_create(size_t count, int *memory_list, bool unlimited) {
     assert(count > 0);
     assert(memory_list != NULL);
 
@@ -176,6 +176,7 @@ bool _main_memory_free(main_memory_t* self, pcb_t* process) {
 bool _main_memory_first_compare_func(const void *left, const void *right) {
     return true;
 }
+
 bool _main_memory_best_compare_func(const void *left, const void *right) {
     memory_frag_t* frag_left = (memory_frag_t*)left;
     memory_frag_t* frag_right = (memory_frag_t*)right;
