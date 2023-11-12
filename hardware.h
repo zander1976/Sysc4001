@@ -41,7 +41,8 @@ void _main_memory_delete(main_memory_t* self);
 
 bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job);
 int _main_memory_append(main_memory_t* self, pcb_t* process);
-bool _main_memory_free(main_memory_t* self, pcb_t* process);
+bool _main_memory_check_availability(main_memory_t* self, pcb_t* process);
+bool _main_memory_remove(main_memory_t* self, pcb_t* process);
 
 bool _main_memory_first_compare_func(const void *left, const void *right);
 bool _main_memory_best_compare_func(const void *left, const void *right);
@@ -149,7 +150,27 @@ int _main_memory_append(main_memory_t* self, pcb_t* process) {
     return -1;
 }
 
-bool _main_memory_free(main_memory_t* self, pcb_t* process) {
+bool _main_memory_check_availability(main_memory_t* self, pcb_t* process) {
+    assert(self != NULL);
+    assert(process != NULL);
+
+    if (self->unlimited == true) {
+        return true;
+    }
+
+    heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
+    while (_heap_iterator_has_next(iter)) {
+        memory_frag_t* frag = _heap_iterator_next(iter);
+        if (frag->frag_size > process->memory_size) {
+            return true;
+        }
+    }
+    _heap_iterator_delete(iter);
+    return false;
+}
+
+
+bool _main_memory_remove(main_memory_t* self, pcb_t* process) {
     assert(self != NULL);
     assert(process != NULL);
 

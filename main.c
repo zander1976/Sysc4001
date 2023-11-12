@@ -44,6 +44,8 @@ void terminate_callback(state_machine_t* self) {
     while( (process = _heap_pop(self->term_queue)) != NULL) {
         // Announce it's deletion
         process->departed_time = self->cpu->clock;
+        _main_memory_remove(self->main_memory, process);
+        process->memory_location = 0;
         _pcb_list_append(self->report_queue, process);
         //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
         show_state(self);
@@ -69,9 +71,12 @@ void lt_scheduler_callback(state_machine_t* self) {
     if (job == NULL) {
         return;
     }
-//    if (self->memory_wait_queue->count > 0) {
-//        _main_memory_reserve_location()
-//    }
+    for(int i = 0; i < self->memory_wait_queue->count; i++) {
+        if (_main_memory_check_availability(self->main_memory, self->memory_wait_queue->blocks[i])) {
+            interrupt(self, ADMITTED);
+        }
+    }
+
     if (job->arrival_time <= self->cpu->clock) {
         if (_main_memory_is_fit_possible(self->main_memory, job)) {
             interrupt(self, ADMITTED);
@@ -155,20 +160,40 @@ void clock_pulse_callback(state_machine_t* self) {
 void admitted_callback(state_machine_t* self) {
     assert(self != NULL);
 
+    // Check the waiting queue first
+    for(int i = 0; i < self->memory_wait_queue->count; i++) {
+        if (_main_memory_check_availability(self->main_memory, self->memory_wait_queue->blocks[i])) {
+            int location = _main_memory_append(self->main_memory, self->memory_wait_queue->blocks[i]);
+            if (location == -1) {
+                continue;
+            }
+            pcb_t* process = _pcb_list_remove(self->memory_wait_queue, i);
+            process->memory_location = location;
+            _heap_append(self->ready_queue, process);
+            show_state(self);
+            interrupt(self, ST_SCHEDULER);
+            return;
+        }
+    }  
+
+    // Add a new job 
     job_t* job = _heap_pop(self->new_queue);
     pcb_t* process = malloc(sizeof(pcb_t));
     if (process == NULL) {
         return;
     }
-
     _pbc_admit_job(process, job);
 
-    //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, job->pid, "New", "Ready");
-
-    _heap_append(self->ready_queue, process);
+    // Add the process to memory
+    int location = _main_memory_append(self->main_memory,process);
+    if (location == -1) {
+        _pcb_list_append(self->memory_wait_queue, process);
+    } else {
+        process->memory_location = location;
+        _heap_append(self->ready_queue, process);
+    }
 
     show_state(self);
-
     interrupt(self, ST_SCHEDULER);
 }
 
