@@ -68,11 +68,23 @@ void lt_scheduler_callback(state_machine_t* self) {
     if (job == NULL) {
         return;
     }
-    if (self->memory_wait_queue->count > 0) {
-        _main_memory_reserve_location()
-    }
+//    if (self->memory_wait_queue->count > 0) {
+//        _main_memory_reserve_location()
+//    }
     if (job->arrival_time <= self->cpu->clock) {
-        interrupt(self, ADMITTED);
+        if (_main_memory_is_fit_possible(self->main_memory, job)) {
+            interrupt(self, ADMITTED);
+        } else {
+            // Reject
+            job_t* job = _heap_pop(self->new_queue);
+            pcb_t* process = malloc(sizeof(pcb_t));
+            if (process == NULL) {
+                return;
+            }
+
+            _pbc_admit_job(process, job);
+            _pcb_list_append(self->memory_wait_queue, process);
+        }
     }
 }
 

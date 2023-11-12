@@ -38,9 +38,11 @@ void _cpu_delete(cpu_t* self);
 
 main_memory_t* _main_memory_create(size_t count, size_t *memory_list, bool unlimited);
 void _main_memory_delete(main_memory_t* self);
+
 bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job);
-int _main_memory_reserve_location(main_memory_t* self, pcb_t* process);
-bool _main_memory_free_get_available_location(main_memory_t* self, pcb_t* process);
+int _main_memory_append(main_memory_t* self, pcb_t* process);
+bool _main_memory_free(main_memory_t* self, pcb_t* process);
+
 bool _main_memory_first_compare_func(const void *left, const void *right);
 bool _main_memory_best_compare_func(const void *left, const void *right);
 bool _main_memory_worst_compare_func(const void *left, const void *right);
@@ -125,7 +127,7 @@ bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job) {
     return false;
 }
 
-int _main_memory_reserve_location(main_memory_t* self, pcb_t* process) {
+int _main_memory_append(main_memory_t* self, pcb_t* process) {
     assert(self != NULL);
     assert(process != NULL);
 
@@ -147,7 +149,7 @@ int _main_memory_reserve_location(main_memory_t* self, pcb_t* process) {
     return -1;
 }
 
-bool _main_memory_free_get_available_location(main_memory_t* self, pcb_t* process) {
+bool _main_memory_free(main_memory_t* self, pcb_t* process) {
     assert(self != NULL);
     assert(process != NULL);
 
@@ -178,7 +180,7 @@ bool _main_memory_best_compare_func(const void *left, const void *right) {
     memory_frag_t* frag_left = (memory_frag_t*)left;
     memory_frag_t* frag_right = (memory_frag_t*)right;
     
-    if (frag_left->priority < frag_right->priority) {
+    if (frag_left->frag_size > frag_right->frag_size) {
         return false;
     }
     return true;
@@ -188,7 +190,7 @@ bool _main_memory_worst_compare_func(const void *left, const void *right) {
     memory_frag_t* frag_left = (memory_frag_t*)left;
     memory_frag_t* frag_right = (memory_frag_t*)right;
     
-    if (frag_left->priority < frag_right->priority) {
+    if (frag_left->frag_size < frag_right->frag_size) {
         return true;
     }
     return false;
