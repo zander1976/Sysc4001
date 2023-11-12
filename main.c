@@ -89,16 +89,6 @@ void clock_pulse_callback(state_machine_t* self) {
     }
     
     // Check the wait queue
-    /*if (self->wait_queue != 0) {
-        pcb_t* pcb = _heap_peak(self->wait_queue);
-        if (pcb != NULL) {
-            pcb->remaining_io_cycles--;
-            if (pcb->remaining_io_cycles == 0) {
-                interrupt(self, IRQ_IO_COMPLETE);
-            }
-        }
-    }
-    */
     // Increment the wait counter
     heap_iterator_t* iter = _heap_iterator_create(self->wait_queue);
     while (_heap_iterator_has_next(iter)) {
@@ -112,6 +102,14 @@ void clock_pulse_callback(state_machine_t* self) {
 
     self->cpu->clock++;
     self->cpu->program_counter++;
+
+    // Not sure if this should be before or after
+    if (self->cpu->preempt != 0) {
+        if ((self->cpu->clock % self->cpu->preempt) == 0) {
+            interrupt(self, PREEMPT);
+        }
+    }    
+
 
     // Increment the wait counter
     iter = _heap_iterator_create(self->ready_queue);
@@ -186,9 +184,14 @@ void dispatch_callback(state_machine_t* self) {
 
 // Kick process out of CPU
 void preempt_callback(state_machine_t* self) {
-    printf("preempt_callback!\n");
     assert(self != NULL);
-}
+    if (self->running == NULL) {
+        return;
+    }
+    //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Waiting", "Ready");
+    _heap_append(self->ready_queue, self->running);
+    self->running = NULL;
+    interrupt(self, ST_SCHEDULER);}
 
 // System call from User space to do an IO request. Wait time is in cpu->mdr)
 void syscall_io_request_callback(state_machine_t* self) {
