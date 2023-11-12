@@ -27,16 +27,17 @@ typedef enum {
 
 typedef struct state_machine state_machine_t;
 struct state_machine {
-    surface_t* surface;
+    surface_t *surface;
+    char *scheduler;
     cpu_t *cpu;
+    main_memory_t *main_memory;
     heap_t *new_queue; 
-    heap_t *memory_wait_queue;
     heap_t *ready_queue;
     heap_t *wait_queue;
     heap_t *term_queue;
-    heap_t *report_queue;
     pcb_t *running;
-    char* scheduler;
+    pcb_list_t *memory_wait_queue;
+    pcb_list_t *report_queue;
     void (*isr[SYSCALL_EXIT_REQUEST + 1])(state_machine_t* machine); 
 };
 
@@ -53,7 +54,7 @@ void demote_processb(state_machine_t* machine);
 
 #ifdef __STATE_MACHINE_IMPLEMENTATION__
 
-state_machine_t* _state_machine_create(int col, int row, char* scheduler, int preempt, int* memory_blocks) {
+state_machine_t* _state_machine_create(int col, int row, char* scheduler, int preempt, size_t mem_count, int* memory_blocks) {
 
     state_machine_t* machine = malloc(sizeof(state_machine_t));
     assert(machine != NULL);
@@ -65,27 +66,36 @@ state_machine_t* _state_machine_create(int col, int row, char* scheduler, int pr
 
     machine->cpu = _cpu_create(preempt);
     machine->running = NULL;
-    //machine->main_memory = _main_memory_create(16);
+
+    if (memory_count > 0) {
+        machine->main_memory = _main_memory_create(memory_count, memory_blocks, false);
+    } else {
+        machine->main_memory = _main_memory_create(0, NULL, true);
+    }
 
     // Create all the queues
     machine->new_queue    = _heap_create(4, _job_arrival_time_compare_func);
-    machine->memory_wait_queue = _heap_create(4, _job_arrival_time_compare_func);
     machine->ready_queue  = _heap_create(4, _pcb_priority_compare_func);
     machine->wait_queue   = _heap_create(4, _pcb_fcfs_compare_func);
     machine->term_queue   = _heap_create(4, _pcb_fcfs_compare_func);
-    machine->report_queue = _heap_create(4, _pcb_fcfs_compare_func);
+
+    machine->memory_wait_queue = _pcb_list_create(1);
+    machine->report_queue = _pcb_list_create(1);
 
     return machine;
 }
 
 void _state_machine_delete(state_machine_t *self) {
 
+    _pcb_list_delete(self->memory_wait_queue);
+    _pcb_list_delete(self->report_queue);
+
     _heap_delete(self->new_queue);
-    _heap_delete(self->memory_wait_queue);
     _heap_delete(self->ready_queue);
     _heap_delete(self->wait_queue);
     _heap_delete(self->term_queue);
-    _heap_delete(self->report_queue);
+
+    _main_memory_delete(self->main_memory);
 
     _cpu_delete(self->cpu);
 

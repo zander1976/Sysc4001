@@ -68,6 +68,9 @@ void lt_scheduler_callback(state_machine_t* self) {
     if (job == NULL) {
         return;
     }
+    if (self->memory_wait_queue->count > 0) {
+        _main_memory_reserve_location()
+    }
     if (job->arrival_time <= self->cpu->clock) {
         interrupt(self, ADMITTED);
     }
