@@ -361,10 +361,10 @@ void show_state(state_machine_t* machine) {
         char output[22];
         if (machine->cpu->preempt == 0) {
             _render_write_string(machine->surface, x, y+1, "PID    CPU Left  Priority", COLOR_WHITE);
-            sprintf(output, "%d      %d        %d", process->pid, process->total_cpu_time - process->program_counter, process->priority);
+            sprintf(output, "%d      %d        %d", process->pid, process->total_cpu_time - machine->cpu->program_counter, process->priority);
         } else {
             _render_write_string(machine->surface, x, y+1, "PID    CPU Left  Preempt", COLOR_WHITE);
-            sprintf(output, "%d      %d        %d", process->pid, process->program_counter, machine->cpu->preempt);
+            sprintf(output, "%d      %d        %d", process->pid, process->total_cpu_time - machine->cpu->program_counter, machine->cpu->preempt);
         }
         _render_write_string(machine->surface, x, y+2, output, COLOR_YELLOW);
     }
