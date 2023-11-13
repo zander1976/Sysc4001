@@ -45,25 +45,8 @@ void terminate_callback(state_machine_t* self) {
     while( (process = _heap_pop(self->term_queue)) != NULL) {
         // Announce it's deletion
         process->departed_time = self->cpu->clock;
-        heap_iterator_t* iter = _heap_iterator_create(self->main_memory->memory_blocks);
-        while (_heap_iterator_has_next(iter)) {
-            memory_frag_t* frag = _heap_iterator_next(iter);
-            if (frag->data != NULL) {
-                pcb_t* process = (pcb_t*)frag->data;
-            }
-        }
-        _heap_iterator_delete(iter);        
-        _main_memory_remove(self->main_memory, process);
         process->memory_location = 0;
-        iter = _heap_iterator_create(self->main_memory->memory_blocks);
-        while (_heap_iterator_has_next(iter)) {
-            memory_frag_t* frag = _heap_iterator_next(iter);
-            if (frag->data != NULL) {
-                pcb_t* process = (pcb_t*)frag->data;
-                printf("PIDS: %d Location: %d\n", process->pid, process->memory_location);
-            }
-        }
-        _heap_iterator_delete(iter);        
+        _main_memory_remove(self->main_memory, process);
         _pcb_list_append(self->report_queue, process);
         //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
         show_state(self);
