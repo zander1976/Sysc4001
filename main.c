@@ -243,6 +243,7 @@ void preempt_callback(state_machine_t* self) {
     }
 
     //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Running", "Ready");
+    save_context(self);
     _heap_append(self->ready_queue, self->running);
     self->running = NULL;
     interrupt(self, ST_SCHEDULER);
