@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 
 #define __HEAP_IMPLEMENTATION__
 #include "util_heap.h"
@@ -49,7 +50,6 @@ void terminate_callback(state_machine_t* self) {
             memory_frag_t* frag = _heap_iterator_next(iter);
             if (frag->data != NULL) {
                 pcb_t* process = (pcb_t*)frag->data;
-                printf("PIDS: %d Location: %d\n", process->pid, process->memory_location);
             }
         }
         _heap_iterator_delete(iter);        
@@ -78,6 +78,7 @@ void io_complete_callback(state_machine_t* self) {
         return;
     }
     //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Waiting", "Ready");
+    pcb->wait_count++;
     _heap_append(self->ready_queue, pcb);
     interrupt(self, ST_SCHEDULER);
 }
@@ -183,6 +184,7 @@ void admitted_callback(state_machine_t* self) {
         if (_main_memory_check_availability(self->main_memory, self->memory_wait_queue->blocks[i])) {
             _main_memory_append(self->main_memory, self->memory_wait_queue->blocks[i]);
             pcb_t* process = _pcb_list_remove(self->memory_wait_queue, i);
+            process->wait_count++;
             _heap_append(self->ready_queue, process);
             show_state(self);
             interrupt(self, ST_SCHEDULER);
@@ -202,6 +204,7 @@ void admitted_callback(state_machine_t* self) {
     if (_main_memory_append(self->main_memory,process) == false) {
         _pcb_list_append(self->memory_wait_queue, process);
     } else {
+        process->wait_count++;
         _heap_append(self->ready_queue, process);
     }
 
@@ -244,6 +247,7 @@ void preempt_callback(state_machine_t* self) {
 
     //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, pcb->pid, "Running", "Ready");
     save_context(self);
+    self->running->wait_count++;
     _heap_append(self->ready_queue, self->running);
     self->running = NULL;
     interrupt(self, ST_SCHEDULER);
@@ -255,6 +259,13 @@ void syscall_io_request_callback(state_machine_t* self) {
 
     self->running->remaining_io_cycles = self->running->io_duration;
     //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Running", "Waiting");
+    if (self->running->io_leave_time != 0) {
+        self->running->response_count++;
+        self->running->total_response_time += self->cpu->clock - self->running->io_leave_time;
+        self->running->io_leave_time = 0;
+    } else {
+        self->running->io_leave_time = self->cpu->clock;
+    }
 
     save_context(self);
     _heap_append(self->wait_queue, self->running);
@@ -273,6 +284,7 @@ void syscall_exit_request_callback(state_machine_t* self) {
 }
 
 void show_state(state_machine_t* machine) {
+    return;
 
     _render_clear_surface(machine->surface);
 
@@ -487,10 +499,55 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    //for(int i = 0; i < machine->report_queue->count; i++) {
-        //machine->report_queue->blocks[i];
-        //_pcb_print(process);
-    //}
+    for(int i = 0; i < machine->report_queue->count; i++) {
+        pcb_t* process = machine->report_queue->blocks[i];
+        if (process->departed_time != 0) {
+            continue;
+        }
+        printf("Rejected: %d\n", process->pid);
+    }
+
+    int wait_count = 0;
+    int start_time = 0;
+    int departed_time = 0;
+    int total_wait_time = 0;
+    int response_count = 0;
+    int total_response_time = 0;
+    int completed_count = 0;
+    printf("\nPID\tArrival Time\tDeparted Time\tWait Count\tTotal Wait Time\t\tResponse Count\tTotal Response Time\n");
+    for(int i = 0; i < machine->report_queue->count; i++) {
+        pcb_t* process = machine->report_queue->blocks[i];
+        if (process->departed_time == 0) {
+            continue;
+        }
+        if (i == 0) {
+            start_time = process->arrival_time;
+        }
+        completed_count++;
+        departed_time = process->departed_time;
+
+        wait_count += process->wait_count;
+        total_wait_time += process->total_wait_time;
+        response_count += process->response_count;
+        total_response_time += process->total_response_time;
+
+        printf("%d\t", process->pid);
+        printf("%d\t", process->arrival_time);
+        printf("\t%d\t", process->departed_time);
+        printf("\t%d\t", process->wait_count);
+        printf("\t%d\t", process->total_wait_time);
+        printf("\t\t%d\t", process->response_count);
+        printf("\t%d\t", process->total_response_time);
+        printf("\n");
+    }
+
+    printf("\n");
+    printf("Throughput: %d / %d = %.2f\n", completed_count, departed_time - start_time, (float)completed_count / (float)(departed_time - start_time));
+    printf("Average Wait Time: %d\n", (int)round(total_wait_time/(float)wait_count));
+    if (response_count == 0) {
+        response_count = 1;
+    }
+    printf("Average Response Time: %d\n", (int)round(total_response_time/(float)response_count));
 
     _state_machine_delete(machine);
 

@@ -21,6 +21,7 @@ typedef struct {
     unsigned int departed_time;
     unsigned int wait_count;
     unsigned int total_wait_time;
+    unsigned int io_leave_time;
     unsigned int response_count;
     unsigned int total_response_time;
     unsigned int remaining_io_cycles; 
@@ -63,6 +64,7 @@ void _pbc_admit_job(pcb_t* pcb, job_t* job) {
     pcb->departed_time = 0;
     pcb->wait_count = 0;
     pcb->total_wait_time = 0;
+    pcb->io_leave_time = 0;
     pcb->response_count = 0;
     pcb->total_response_time = 0;
     pcb->remaining_io_cycles = job->io_duration;
