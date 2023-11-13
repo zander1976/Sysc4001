@@ -8,7 +8,6 @@
  * Fall 2023 Sysc 4001
 */
 
-
 #ifndef __HARDWARE_H__
 #define __HARDWARE_H__
 
@@ -27,9 +26,8 @@ typedef struct {
 } memory_frag_t;
 
 typedef struct {
-    bool unlimited;
     size_t count;
-    size_t blocks;
+    size_t backing_size;
     heap_t* memory_blocks;
 } main_memory_t;
 
@@ -40,8 +38,8 @@ main_memory_t* _main_memory_create(size_t count, int *memory_list);
 void _main_memory_delete(main_memory_t* self);
 
 bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job);
-int _main_memory_append(main_memory_t* self, pcb_t* process);
 bool _main_memory_check_availability(main_memory_t* self, pcb_t* process);
+bool _main_memory_append(main_memory_t* self, pcb_t* process);
 bool _main_memory_remove(main_memory_t* self, pcb_t* process);
 
 bool _main_memory_first_compare_func(const void *left, const void *right);
@@ -78,16 +76,20 @@ void _cpu_clear(cpu_t* self) {
 }
 
 main_memory_t* _main_memory_create(size_t count, int *memory_list) {
+
     main_memory_t* memory = malloc(sizeof(main_memory_t));
     assert(memory != NULL);
-    memory->unlimited = false;
+    
     memory->count = 0;
-    memory->blocks = count;
     if (count == 0) {
-        memory->unlimited = true;
-        return memory;
+        count = 20;
+        memory_list = malloc(count * sizeof(int));
+        for(int i = 0; i < count; i++) {
+            memory_list[i] = 0;
+        }
     }
 
+    memory->backing_size = count;
     memory->memory_blocks = _heap_create(count, _main_memory_first_compare_func);
 
     for (int i = 0; i < count; i++) {
@@ -102,9 +104,7 @@ main_memory_t* _main_memory_create(size_t count, int *memory_list) {
 
 void _main_memory_delete(main_memory_t* self) {
     assert(self != NULL);
-    if (self->memory_blocks != NULL) {
-        _heap_delete(self->memory_blocks);
-    }
+    _heap_delete(self->memory_blocks);
     free(self);
 }
 
@@ -112,14 +112,10 @@ bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job) {
     assert(self != NULL);
     assert(job != NULL);
 
-    if (self->unlimited == true) {
-        return true;
-    }
-
     heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
     while (_heap_iterator_has_next(iter)) {
         memory_frag_t* frag = _heap_iterator_next(iter);
-        if ((frag->frag_size > job->memory_size) || (frag->frag_size == 0)) {
+        if ((frag->frag_size >= job->memory_size) || (frag->frag_size == 0)) {
             return true;
         }
     }
@@ -127,40 +123,17 @@ bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job) {
     return false;
 }
 
-int _main_memory_append(main_memory_t* self, pcb_t* process) {
-    assert(self != NULL);
-    assert(process != NULL);
-
-    if (self->unlimited == true) {
-        return 0;
-    }
-
-    int index = 1; 
-    heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
-    while (_heap_iterator_has_next(iter)) {
-        memory_frag_t* frag = _heap_iterator_next(iter);
-        if ((frag->frag_size > process->memory_size) || (frag->frag_size == 0)) {
-            frag->data = process;
-            return index;
-        }
-        index++;
-    }
-    _heap_iterator_delete(iter);
-    return -1;
-}
-
 bool _main_memory_check_availability(main_memory_t* self, pcb_t* process) {
     assert(self != NULL);
     assert(process != NULL);
 
-    if (self->unlimited == true) {
-        return true;
-    }
-
     heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
     while (_heap_iterator_has_next(iter)) {
         memory_frag_t* frag = _heap_iterator_next(iter);
-        if ((frag->frag_size > process->memory_size) || (frag->frag_size == 0)) {
+        if (frag->data != NULL) {
+            continue;
+        }
+        if ((frag->frag_size >= process->memory_size) || (frag->frag_size == 0)) {
             return true;
         }
     }
@@ -168,14 +141,32 @@ bool _main_memory_check_availability(main_memory_t* self, pcb_t* process) {
     return false;
 }
 
+bool _main_memory_append(main_memory_t* self, pcb_t* process) {
+    assert(self != NULL);
+    assert(process != NULL);
+
+    int index = 0; 
+    heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
+    while (_heap_iterator_has_next(iter)) {
+        index++;
+        memory_frag_t* frag = _heap_iterator_next(iter);
+        if (frag->data != NULL) {
+            continue;
+        }
+        if ((frag->frag_size >= process->memory_size) || (frag->frag_size == 0)) {
+            frag->data = process;
+            process->memory_location = index;
+            self->count++;
+            return true;
+        }
+    }
+    _heap_iterator_delete(iter);
+    return false;
+}
 
 bool _main_memory_remove(main_memory_t* self, pcb_t* process) {
     assert(self != NULL);
     assert(process != NULL);
-
-    if (self->unlimited == true) {
-        return 0;
-    }
 
     heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
     while (_heap_iterator_has_next(iter)) {
