@@ -127,12 +127,6 @@ void clock_pulse_callback(state_machine_t* self) {
     self->cpu->clock++;
     self->cpu->program_counter++;
 
-    // Not sure if this should be before or after
-    if (self->cpu->preempt != 0) {
-        if ((self->cpu->program_counter % self->cpu->preempt) == 0) {
-            interrupt(self, PREEMPT);
-        }
-    }    
 
     // Increment the wait counter
     iter = _heap_iterator_create(self->ready_queue);
@@ -147,6 +141,13 @@ void clock_pulse_callback(state_machine_t* self) {
             interrupt(self, SYSCALL_EXIT_REQUEST);
         } 
     }
+    // Not sure if this should be before or after
+    if (self->cpu->preempt != 0) {
+        if ((self->cpu->program_counter % self->cpu->preempt) == 0) {
+            interrupt(self, PREEMPT);
+        }
+    }    
+
     if (self->running != NULL) {
         // Check to see if it even has any io
         if (self->running->io_frequency != 0) {
@@ -267,7 +268,6 @@ void syscall_exit_request_callback(state_machine_t* self) {
 }
 
 void show_state(state_machine_t* machine) {
-    return;
 
     _render_clear_surface(machine->surface);
 
@@ -319,7 +319,7 @@ void show_state(state_machine_t* machine) {
     x = 0;
     y = 29;
     _render_write_string(machine->surface, x, y, "Term Queue:", COLOR_WHITE);
-    _render_write_string(machine->surface, x, y+1, "PID  Turnaround Avg Wait Avg Response", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y+1, "PID  Arrival  Departure", COLOR_WHITE);
     heap_iterator_t* term_iter = _heap_iterator_create(machine->term_queue);
     for(int i=1; i <= 10; i++) {
         if (_heap_iterator_has_next(term_iter) == false) {
@@ -327,7 +327,7 @@ void show_state(state_machine_t* machine) {
         } 
         pcb_t* process = _heap_iterator_next(term_iter);
         char output[35];
-        sprintf(output, "%d     %d        %.2f       %.2f", process->pid, process->departed_time-process->arrival_time, (float)process->total_wait_time / process->wait_count, (float)process->total_response_time / process->response_count);
+        sprintf(output, "%d       %d        %d", process->pid, process->arrival_time, machine->cpu->clock);
         _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
     }
     _heap_iterator_delete(term_iter);
