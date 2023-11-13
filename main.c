@@ -163,12 +163,8 @@ void admitted_callback(state_machine_t* self) {
     // Check the waiting queue first
     for(int i = 0; i < self->memory_wait_queue->count; i++) {
         if (_main_memory_check_availability(self->main_memory, self->memory_wait_queue->blocks[i])) {
-            int location = _main_memory_append(self->main_memory, self->memory_wait_queue->blocks[i]);
-            if (location == -1) {
-                continue;
-            }
+            _main_memory_append(self->main_memory, self->memory_wait_queue->blocks[i]);
             pcb_t* process = _pcb_list_remove(self->memory_wait_queue, i);
-            process->memory_location = location;
             _heap_append(self->ready_queue, process);
             show_state(self);
             interrupt(self, ST_SCHEDULER);
@@ -185,11 +181,9 @@ void admitted_callback(state_machine_t* self) {
     _pbc_admit_job(process, job);
 
     // Add the process to memory
-    int location = _main_memory_append(self->main_memory,process);
-    if (location == -1) {
+    if (_main_memory_append(self->main_memory,process) == false) {
         _pcb_list_append(self->memory_wait_queue, process);
     } else {
-        process->memory_location = location;
         _heap_append(self->ready_queue, process);
     }
 
@@ -370,16 +364,18 @@ void show_state(state_machine_t* machine) {
     x = 105;
     y = 17;
     _render_write_string(machine->surface, x, y, "Memory Blocks:", COLOR_WHITE);
-    _render_write_string(machine->surface, x, y+1, "PID   Requirement", COLOR_WHITE);
+    y++;
+    _render_write_string(machine->surface, x, y, "PID   Requirement", COLOR_WHITE);
     heap_iterator_t* memory_iter = _heap_iterator_create(machine->main_memory->memory_blocks);
-    for(int i=1; i <= 7; i++) {
-        if (_heap_iterator_has_next(memory_iter) == false) {
-            break;
-        } 
-        pcb_t* process = _heap_iterator_next(memory_iter);
-        char output[22];
-        sprintf(output, "%d       %d      %d", process->pid, process->memory_size, process->memory_location);
-        _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
+    while (_heap_iterator_has_next(memory_iter)) {
+        y++;
+        memory_frag_t* frag = _heap_iterator_next(memory_iter);
+        if (frag->data != NULL) {
+            pcb_t* process = (pcb_t*)frag->data;
+            char output[22];
+            sprintf(output, "%d       %d      %d", process->pid, process->memory_size, process->memory_location);
+            _render_write_string(machine->surface, x, y, output, COLOR_CYAN);
+        }
     }
     _heap_iterator_delete(memory_iter);
 
