@@ -67,13 +67,8 @@ state_machine_t* _state_machine_create(int col, int row, char* scheduler, int pr
     machine->cpu = _cpu_create(preempt);
     machine->running = NULL;
 
-    printf("Memory Count: %d\n", memory_count);
-    if (memory_count > 0) {
-        machine->main_memory = _main_memory_create(memory_count, memory_blocks);
-    } else {
-        machine->main_memory = _main_memory_create(0, NULL);
-    }
-
+    machine->main_memory = _main_memory_create(memory_count, memory_blocks);
+    
     // Create all the queues
     machine->new_queue    = _heap_create(4, _job_arrival_time_compare_func);
     machine->ready_queue  = _heap_create(4, _pcb_priority_compare_func);

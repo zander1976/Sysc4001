@@ -119,7 +119,7 @@ bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job) {
     heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
     while (_heap_iterator_has_next(iter)) {
         memory_frag_t* frag = _heap_iterator_next(iter);
-        if (frag->frag_size > job->memory_size) {
+        if ((frag->frag_size > job->memory_size) || (frag->frag_size == 0)) {
             return true;
         }
     }
@@ -139,7 +139,7 @@ int _main_memory_append(main_memory_t* self, pcb_t* process) {
     heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
     while (_heap_iterator_has_next(iter)) {
         memory_frag_t* frag = _heap_iterator_next(iter);
-        if (frag->frag_size > process->memory_size) {
+        if ((frag->frag_size > process->memory_size) || (frag->frag_size == 0)) {
             frag->data = process;
             return index;
         }
@@ -160,7 +160,7 @@ bool _main_memory_check_availability(main_memory_t* self, pcb_t* process) {
     heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
     while (_heap_iterator_has_next(iter)) {
         memory_frag_t* frag = _heap_iterator_next(iter);
-        if (frag->frag_size > process->memory_size) {
+        if ((frag->frag_size > process->memory_size) || (frag->frag_size == 0)) {
             return true;
         }
     }

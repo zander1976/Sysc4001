@@ -260,7 +260,6 @@ void syscall_exit_request_callback(state_machine_t* self) {
 }
 
 void show_state(state_machine_t* machine) {
-    return;
 
     _render_clear_surface(machine->surface);
 
@@ -276,7 +275,6 @@ void show_state(state_machine_t* machine) {
     } else {
         _render_write_string(machine->surface, 9, 2, "Yes", COLOR_CYAN);
     }
-
 
     int x = 0;
     int y = 5;
@@ -358,6 +356,33 @@ void show_state(state_machine_t* machine) {
         _render_write_string(machine->surface, x, y+2, output, COLOR_YELLOW);
     }
 
+    x = 105;
+    y = 5;
+    _render_write_string(machine->surface, x, y, "Memory Wait Queue:", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y+1, "PID   Requirement", COLOR_WHITE);
+    for(int i = 0; i < machine->memory_wait_queue->count; i++) {
+        char output[22];
+        pcb_t* process = (pcb_t*)machine->memory_wait_queue->blocks[i];
+        sprintf(output, "%d    %d", process->pid, process->memory_size);
+        _render_write_string(machine->surface, x, y+2+i, output, COLOR_YELLOW);
+    }
+
+    x = 105;
+    y = 17;
+    _render_write_string(machine->surface, x, y, "Memory Blocks:", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y+1, "PID   Requirement", COLOR_WHITE);
+    heap_iterator_t* memory_iter = _heap_iterator_create(machine->main_memory->memory_blocks);
+    for(int i=1; i <= 7; i++) {
+        if (_heap_iterator_has_next(memory_iter) == false) {
+            break;
+        } 
+        pcb_t* process = _heap_iterator_next(memory_iter);
+        char output[22];
+        sprintf(output, "%d       %d      %d", process->pid, process->memory_size, process->memory_location);
+        _render_write_string(machine->surface, x, y+1+i, output, COLOR_CYAN);
+    }
+    _heap_iterator_delete(memory_iter);
+
     // Display the results
     _render_display_frame(machine->surface);
     getchar();
@@ -401,13 +426,21 @@ int main(int argc, char *argv[]) {
                 index++;
                 token = strtok(NULL, ",");
             }
-
-            printf("%s %s %d ", file, scheduler, preempt);
-            for (int i = 0; i < memory_block_count; i++) {
-                printf("%d ", memory_blocks[i]);
-            }            
-            printf("\n");
         }
+        printf("\nFile: %s\n", file);
+        printf("Scheduler: %s\n", scheduler);
+        if (preempt == 0) {
+            printf("No preemption\n");
+        } else {
+            printf("Preemption\n");
+        }
+
+        printf("Memory Block Count: %d\n", memory_block_count);
+        printf("Memory Sizes: ");
+        for (int i = 0; i < memory_block_count; i++) {
+            printf("%d ", memory_blocks[i]);
+        }            
+        printf("\n\n");
     }
 
     // Create the CPU and state machine
