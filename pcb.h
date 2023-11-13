@@ -24,7 +24,7 @@ typedef struct {
     unsigned int io_leave_time;
     unsigned int response_count;
     unsigned int total_response_time;
-    unsigned int remaining_io_cycles; 
+    unsigned int remaining_io_cycles;
     unsigned int priority;
     unsigned int memory_size;
     unsigned int memory_location;

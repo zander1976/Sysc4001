@@ -493,6 +493,7 @@ int main(int argc, char *argv[]) {
     int wait_count = 0;
     int start_time = 0;
     int departed_time = 0;
+    int total_turnaround_time = 0;
     int total_wait_time = 0;
     int response_count = 0;
     int total_response_time = 0;
@@ -508,6 +509,7 @@ int main(int argc, char *argv[]) {
         }
         completed_count++;
         departed_time = process->departed_time;
+        total_turnaround_time += process->departed_time - process->arrival_time;
 
         wait_count += process->wait_count;
         total_wait_time += process->total_wait_time;
@@ -525,7 +527,12 @@ int main(int argc, char *argv[]) {
     }
 
     printf("\n");
-    printf("Throughput: %d / %d = %.2f\n", completed_count, departed_time - start_time, (float)completed_count / (float)(departed_time - start_time));
+    printf("Throughput(work completed/time): %d / %d = %.2f\n", completed_count, departed_time - start_time, (float)completed_count / (float)(departed_time - start_time));
+    printf("Average Turnaround Time (time to complete): %d\n", (int)round(total_turnaround_time/(float)completed_count));
+    if (response_count == 0) {
+        response_count = 1;
+    }
+
     printf("Average Wait Time: %d\n", (int)round(total_wait_time/(float)wait_count));
     if (response_count == 0) {
         response_count = 1;
