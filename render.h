@@ -105,7 +105,11 @@ void _render_write_int(surface_t* self, int x, int y, int number, color_t color)
 
 
 void _render_display_frame(surface_t* self) {
+#ifdef WINDOWS
+    system("cls");
+#else     
     system("clear");
+#endif
     printf("\033[?25l");  // Disable cursor
     printf("\033[?7l");   // Disable bell
     for (int i = 0; i < self->row; i++) {
