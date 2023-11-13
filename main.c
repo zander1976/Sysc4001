@@ -269,6 +269,8 @@ void syscall_exit_request_callback(state_machine_t* self) {
 
 void show_state(state_machine_t* machine) {
 
+    return;
+    
     _render_clear_surface(machine->surface);
 
     _render_write_string(machine->surface, 0, 0, "Time: ", COLOR_WHITE);

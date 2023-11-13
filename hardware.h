@@ -40,7 +40,8 @@ void _main_memory_delete(main_memory_t* self);
 bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job);
 bool _main_memory_check_availability(main_memory_t* self, pcb_t* process);
 bool _main_memory_append(main_memory_t* self, pcb_t* process);
-bool _main_memory_remove(main_memory_t* self, pcb_t* process);
+int _main_memory_get_total(main_memory_t* self);
+    bool _main_memory_remove(main_memory_t* self, pcb_t* process);
 
 bool _main_memory_first_compare_func(const void *left, const void *right);
 bool _main_memory_best_compare_func(const void *left, const void *right);
@@ -157,11 +158,28 @@ bool _main_memory_append(main_memory_t* self, pcb_t* process) {
             frag->data = process;
             process->memory_location = index;
             self->count++;
+            int total = _main_memory_get_total(self);
+            printf("Accepted: %d Total Memory; %dk\n", process->pid, total);
             return true;
         }
     }
     _heap_iterator_delete(iter);
     return false;
+}
+
+int _main_memory_get_total(main_memory_t* self) {
+
+    heap_iterator_t* iter = _heap_iterator_create(self->memory_blocks);
+    int total = 0;
+    while (_heap_iterator_has_next(iter)) {
+        memory_frag_t* frag = _heap_iterator_next(iter);
+        if (frag->data == NULL) {
+            continue;
+        }
+        pcb_t* process = (pcb_t*)frag->data;
+        total += process->memory_size;
+    }            
+    return total;
 }
 
 bool _main_memory_remove(main_memory_t* self, pcb_t* process) {
@@ -177,6 +195,8 @@ bool _main_memory_remove(main_memory_t* self, pcb_t* process) {
         pcb_t* p = (pcb_t*)frag->data;
         if (p->pid == process->pid) {
             frag->data = NULL;
+            int total = _main_memory_get_total(self);
+            printf("Removed: %d Total Memory; %dk\n", process->pid, total);
             return true;
         }
     }
