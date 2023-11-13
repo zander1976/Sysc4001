@@ -412,26 +412,27 @@ int main(int argc, char *argv[]) {
     char* memory = NULL;
     int *memory_blocks = NULL;
 
-    if (argc < 5) {
-        printf("\n\nmain <filename> <scheduler> <preempt> <memory_block_count> <memory_layout>\n\n");
+    if (argc < 4) {
+        printf("\n\nmain <filename> <scheduler> <memory_block_count> <memory_layout>\n\n");
         printf("<filename> is the csv file.\n");
         printf("<scheduler> FCFS PRIORITY RR\n");
-        printf("<preempt> Preempt time, 0 for none\n");
         printf("<memory_block_count> How many blocks of memory 0 for infinit\n");
         printf("<memory> 102,123,12,14\n\n");
         exit(0);
     } else {
         file = argv[1];
         scheduler = argv[2];
-        preempt = atoi(argv[3]);
-        memory_block_count = atoi(argv[4]);
+        if (strcmp(scheduler, "RR") == 0) {
+            preempt = 1;
+        }
+        memory_block_count = atoi(argv[3]);
         if (memory_block_count == 0) {
             printf("%s %s %d\n", file, scheduler, preempt);
         } else {
             memory_blocks = (int *)malloc(memory_block_count * sizeof(int));
             assert(memory_blocks);
 
-            char *token = strtok(argv[5], ",");
+            char *token = strtok(argv[4], ",");
             
             // Populate the array with integers
             int index = 0;
