@@ -44,8 +44,26 @@ void terminate_callback(state_machine_t* self) {
     while( (process = _heap_pop(self->term_queue)) != NULL) {
         // Announce it's deletion
         process->departed_time = self->cpu->clock;
+        heap_iterator_t* iter = _heap_iterator_create(self->main_memory->memory_blocks);
+        while (_heap_iterator_has_next(iter)) {
+            memory_frag_t* frag = _heap_iterator_next(iter);
+            if (frag->data != NULL) {
+                pcb_t* process = (pcb_t*)frag->data;
+                printf("PIDS: %d Location: %d\n", process->pid, process->memory_location);
+            }
+        }
+        _heap_iterator_delete(iter);        
         _main_memory_remove(self->main_memory, process);
         process->memory_location = 0;
+        iter = _heap_iterator_create(self->main_memory->memory_blocks);
+        while (_heap_iterator_has_next(iter)) {
+            memory_frag_t* frag = _heap_iterator_next(iter);
+            if (frag->data != NULL) {
+                pcb_t* process = (pcb_t*)frag->data;
+                printf("PIDS: %d Location: %d\n", process->pid, process->memory_location);
+            }
+        }
+        _heap_iterator_delete(iter);        
         _pcb_list_append(self->report_queue, process);
         //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
         show_state(self);
@@ -67,16 +85,16 @@ void io_complete_callback(state_machine_t* self) {
 // (JOB Scheduler) timeout for the job or admitted scheduler 
 void lt_scheduler_callback(state_machine_t* self) {
     assert(self != NULL);
-    job_t* job = _heap_peak(self->new_queue);
-    if (job == NULL) {
-        return;
-    }
     for(int i = 0; i < self->memory_wait_queue->count; i++) {
         if (_main_memory_check_availability(self->main_memory, self->memory_wait_queue->blocks[i])) {
             interrupt(self, ADMITTED);
         }
     }
 
+    job_t* job = _heap_peak(self->new_queue);
+    if (job == NULL) {
+        return;
+    }
     if (job->arrival_time <= self->cpu->clock) {
         if (_main_memory_is_fit_possible(self->main_memory, job)) {
             interrupt(self, ADMITTED);
@@ -353,7 +371,7 @@ void show_state(state_machine_t* machine) {
     x = 105;
     y = 5;
     _render_write_string(machine->surface, x, y, "Memory Wait Queue:", COLOR_WHITE);
-    _render_write_string(machine->surface, x, y+1, "PID   Requirement", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y+1, "PID   Mem Size", COLOR_WHITE);
     for(int i = 0; i < machine->memory_wait_queue->count; i++) {
         char output[22];
         pcb_t* process = (pcb_t*)machine->memory_wait_queue->blocks[i];
@@ -365,7 +383,7 @@ void show_state(state_machine_t* machine) {
     y = 17;
     _render_write_string(machine->surface, x, y, "Memory Blocks:", COLOR_WHITE);
     y++;
-    _render_write_string(machine->surface, x, y, "PID   Requirement", COLOR_WHITE);
+    _render_write_string(machine->surface, x, y, "PID   Size  Locaiton", COLOR_WHITE);
     heap_iterator_t* memory_iter = _heap_iterator_create(machine->main_memory->memory_blocks);
     while (_heap_iterator_has_next(memory_iter)) {
         y++;
