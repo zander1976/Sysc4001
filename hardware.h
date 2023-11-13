@@ -36,7 +36,7 @@ typedef struct {
 cpu_t* _cpu_create(int preempt);
 void _cpu_delete(cpu_t* self);
 
-main_memory_t* _main_memory_create(size_t count, int *memory_list, bool unlimited);
+main_memory_t* _main_memory_create(size_t count, int *memory_list);
 void _main_memory_delete(main_memory_t* self);
 
 bool _main_memory_is_fit_possible(main_memory_t* self, job_t* job);
@@ -77,20 +77,17 @@ void _cpu_clear(cpu_t* self) {
     self->mdr = 0;
 }
 
-main_memory_t* _main_memory_create(size_t count, int *memory_list, bool unlimited) {
-    assert(count > 0);
-    assert(memory_list != NULL);
-
+main_memory_t* _main_memory_create(size_t count, int *memory_list) {
     main_memory_t* memory = malloc(sizeof(main_memory_t));
     assert(memory != NULL);
-
-    if (unlimited == true) {
-        memory->unlimited = unlimited;
-        return memory;
-    }
-    
+    memory->unlimited = false;
     memory->count = 0;
     memory->blocks = count;
+    if (count == 0) {
+        memory->unlimited = true;
+        return memory;
+    }
+
     memory->memory_blocks = _heap_create(count, _main_memory_first_compare_func);
 
     for (int i = 0; i < count; i++) {
@@ -105,7 +102,9 @@ main_memory_t* _main_memory_create(size_t count, int *memory_list, bool unlimite
 
 void _main_memory_delete(main_memory_t* self) {
     assert(self != NULL);
-    _heap_delete(self->memory_blocks);
+    if (self->memory_blocks != NULL) {
+        _heap_delete(self->memory_blocks);
+    }
     free(self);
 }
 

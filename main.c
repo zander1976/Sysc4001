@@ -260,6 +260,7 @@ void syscall_exit_request_callback(state_machine_t* self) {
 }
 
 void show_state(state_machine_t* machine) {
+    return;
 
     _render_clear_surface(machine->surface);
 

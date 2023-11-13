@@ -67,10 +67,11 @@ state_machine_t* _state_machine_create(int col, int row, char* scheduler, int pr
     machine->cpu = _cpu_create(preempt);
     machine->running = NULL;
 
+    printf("Memory Count: %d\n", memory_count);
     if (memory_count > 0) {
-        machine->main_memory = _main_memory_create(memory_count, memory_blocks, false);
+        machine->main_memory = _main_memory_create(memory_count, memory_blocks);
     } else {
-        machine->main_memory = _main_memory_create(0, NULL, true);
+        machine->main_memory = _main_memory_create(0, NULL);
     }
 
     // Create all the queues
