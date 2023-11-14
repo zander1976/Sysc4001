@@ -49,7 +49,7 @@ void terminate_callback(state_machine_t* self) {
         _main_memory_remove(self->main_memory, process);
         _pcb_list_append(self->report_queue, process);
         //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, process->pid, "Running", "Terminated");
-        show_state(self);
+        //show_state(self);
     }
 }
 
@@ -170,7 +170,7 @@ void admitted_callback(state_machine_t* self) {
             pcb_t* process = _pcb_list_remove(self->memory_wait_queue, i);
             process->wait_count++;
             _heap_append(self->ready_queue, process);
-            show_state(self);
+            //show_state(self);
             interrupt(self, ST_SCHEDULER);
             return;
         }
@@ -192,7 +192,7 @@ void admitted_callback(state_machine_t* self) {
         _heap_append(self->ready_queue, process);
     }
 
-    show_state(self);
+    //show_state(self);
     interrupt(self, ST_SCHEDULER);
 }
 
@@ -219,7 +219,7 @@ void dispatch_callback(state_machine_t* self) {
     self->running = pcb;
     load_context(self);
     //printf("%u\t%u\t%s\t%s\n", self->cpu->clock, self->running->pid, "Ready", "Running");
-    show_state(self);
+    //show_state(self);
 }
 
 // Kick process out of CPU
@@ -269,8 +269,9 @@ void syscall_exit_request_callback(state_machine_t* self) {
 
 void show_state(state_machine_t* machine) {
 
+#ifndef GUI
     return;
-    
+#endif
     _render_clear_surface(machine->surface);
 
     _render_write_string(machine->surface, 0, 0, "Time: ", COLOR_WHITE);
@@ -397,8 +398,8 @@ void show_state(state_machine_t* machine) {
 
     // Display the results
     _render_display_frame(machine->surface);
-    getchar();
-    //usleep(1000000);
+    //getchar();
+    usleep(500000);
 }
 
 int main(int argc, char *argv[]) {
